@@ -3,6 +3,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# Mac temp file
+.DS_Store
+
 # ipython files
 **/.ipynb_checkpoints/
 *.ipynb

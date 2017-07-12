@@ -1,25 +1,41 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import sys
+import unittest
 import numpy
 import numpy.testing as npt
-import scipy
 import scipy.io
-import scipy.sparse
-import scipy.sparse.linalg
 import pyss
+from pyss.util.contour import Circle, Ellipse
 
-# A = scipy.io.mmread("bcsstk11.mtx")
-# B = scipy.io.mmread("bcsstm11.mtx")
+
+decimal = 5
+
 
 class TestPyss(npt.TestCase):
-    def test_pyss_1(self):
-        A = scipy.sparse.diags(numpy.arange(0.01, 10.01, 0.10))
-        B = scipy.sparse.eye(100)
-        L = 10
-        M = 8
-        N = 12
-        center = 0
-        radius = 1
-        eigvals, eigvecs = pyss.solve(A, B, L, M, N, center, radius)
-        print(numpy.sort(eigvals))
+    @unittest.skipIf('--quick' in sys.argv, 'Large amount computations')
+    def test_pyss_size_1473(self):
+        # A, B are Real matries
+        D = scipy.io.mmread("matrix/bcsst11eig.mtx")
+        A = scipy.io.mmread("matrix/bcsstk11.mtx")
+        B = scipy.io.mmread("matrix/bcsstm11.mtx")
+        contour = Ellipse(real=200, imag=0.3, shift=900)
+        D = D[contour.is_inside(D)]
+        option = {'l': 8, 'm': 2, 'n': 24}
+        eigvals, eigvecs, info = pyss.solve(A, B, contour, option)
+        eigvals = numpy.sort(eigvals)
+        npt.assert_array_almost_equal(eigvals, D, decimal=decimal)
+
+    @unittest.skipIf('--quick' in sys.argv, 'Large amount computations')
+    def test_pyss_size_4800(self):
+        # A, B are Real matries. 16 eigenvalues in contour
+        D = scipy.io.mmread("matrix/mhd4800eig.mtx")
+        A = scipy.io.mmread("matrix/mhd4800a.mtx")
+        B = scipy.io.mmread("matrix/mhd4800b.mtx")
+        contour = Circle(center=-100, radius=5)
+        D = D[contour.is_inside(D)]
+        option = {'l': 20, 'm': 5, 'n': 24}
+        eigvals, eigvecs, info = pyss.solve(A, B, contour, option)
+        eigvals = numpy.sort(eigvals)
+        npt.assert_array_almost_equal(eigvals, D, decimal=decimal)

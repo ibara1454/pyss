@@ -6,6 +6,9 @@ __pycache__/
 # Mac temp file
 .DS_Store
 
+# pep8 settings file
+setup.cfg
+
 # ipython files
 **/.ipynb_checkpoints/
 *.ipynb

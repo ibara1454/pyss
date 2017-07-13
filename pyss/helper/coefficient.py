@@ -5,10 +5,6 @@ import numpy as np
 import numpy.linalg
 
 
-# TODO: Migrate *newton_cotes_coeff
-#       change n be meaning of degree of polynomial
-
-
 def newton_cotes_coeff(h, n, tr=None):
     """Return array of weights of Newton-Cotes method.
 

@@ -1,10 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import numpy
 import scipy.linalg
 import warnings
-import itertools
-from pyss.util import count_iterable
 
 
 def trimmed_svd(A, tol=1e-12, singular_value_lower_bound=1e-6):
@@ -39,5 +38,6 @@ def trimmed_svd(A, tol=1e-12, singular_value_lower_bound=1e-6):
     first = s[0]
     if first < singular_value_lower_bound:
         warnings.warn("Too small singular values have been detected")
-    cut = count_iterable(itertools.takewhile(lambda x: x > tol, s / first))
+    # Returns the last index where
+    cut = numpy.searchsorted(s / first < tol, True) - 1
     return U[:, :cut], s[:cut], Vh[:, :cut]

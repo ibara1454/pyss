@@ -7,9 +7,9 @@ from attrdict import AttrDict
 from pyss.helper.generator import (
     generate_points_on_curve, generate_weights_of_quadrature_points
 )
-from pyss.helper.option import replace_option
 from pyss.analysis import eig_residul
-from pyss.util import eig_pair_filter
+from pyss.helper.filter import eig_pair_filter
+from pyss.helper.option import replace_source, replace_solver
 from pyss.algorithm import (
     trimmed_svd, shifted_rayleigh_ritz
 )
@@ -19,20 +19,18 @@ default_opt = {
     'l': 16,
     'm': 8,
     'n': 32,
-    'hermitian': False,
-    'solver': 'linsolve',
-    'type': 'rayleigh-ritz',
     'refinement': {
         'max_it': 5,
         'tol': 1e-6
     },
-    'source': 'random',
-    'quadrature': 'trapezoid',
-    'executor': 'process_pool_executor'
+    'quadrature': 1,
+    'symmetric': False,
+    'solver': 'linsolve',
+    'source': 'random'
 }
 
 
-def solve(A, B, contour, options):
+def solve(A, B, contour, options, executor):
     """
     Sakurai-Sugiura method, a paralleled generalized eigenpair solver.
 
@@ -53,7 +51,8 @@ def solve(A, B, contour, options):
         the imformation of contour path.
     options : dict
         The primary options of Pyss.
-
+    executor : concurrent.futures.Executor
+        Instance of executor. Used in calculating complex moment in ss-method.
     Returns
     -------
     w : (n,) array, where n <= M
@@ -62,14 +61,18 @@ def solve(A, B, contour, options):
         The right eigenvectors. Each eigenvector vr[:,i] is corresponding to
         the eigenvalue w[i].
     """
-    # Merge options with default_opt
-    options = replace_option({**default_opt, **options})
-    options = AttrDict(options)
-    w, vr, info = pyss_impl_rr(A, B, contour, options)
-    return w, vr, info
+    # Do not use class-base but function-base to implement this algorithm,
+    # since functions have fewer side-effects, and are more familiar with MPI
+    # parallelism
+    options = AttrDict({**default_opt, **options})
+
+    source = replace_source(options.source)
+    solver = replace_solver(options.solver)
+
+    return pyss_impl_rr(A, B, contour, options, source, solver, executor)
 
 
-def pyss_impl_rr(A, B, ctr, opt):
+def pyss_impl_rr(A, B, ctr, opt, source, solver, executor):
     """
     The implementation part of Sakurai-Sugiura method using Rayleigh-Ritz
     procedure.
@@ -95,6 +98,12 @@ def pyss_impl_rr(A, B, ctr, opt):
         the imformation of contour path.
     opt : attrdict.AttrDict
         The primary options of Pyss.
+    source : function
+        The generator of source matrix.
+    solver : function
+        The solver of linear equation of Ax = B.
+    executor : concurrent.futures.Executor
+        Instance of executor. Used in calculating complex moment in ss-method.
 
     Returns
     -------
@@ -104,23 +113,30 @@ def pyss_impl_rr(A, B, ctr, opt):
         The right eigenvectors. Each eigenvector vr[:,i] is corresponding to
         the eigenvalue w[i].
     """
-    builder = complex_moment_builder(A, B, ctr, opt)
-    res = [float('inf')]
+    # Initializing
+    build_moment_with = moment_builder(A, B, ctr, opt, solver, executor)
+    # Build the first source matrix from given function
+    V = source(A.shape[0], opt.l)
+    res_iter = []
+    res = float('inf')
     count = 0
     # TODO: rewrite while loop without side-effects
     # Do refinement until the residual is small enough
-    while count < opt.refinement.max_it and res[-1] > opt.refinement.tol:
-        S = next(builder)
+    while count < opt.refinement.max_it and res > opt.refinement.tol:
+        S = build_moment_with(V)
         U, _, _ = trimmed_svd(S)
         # Solve the reduced eigenvalue problem with Rayleigh-Ritz Procedure
         w, vr = shifted_rayleigh_ritz(A, B, U, shift=ctr.center)
         # Filtering eigen pairs whether which located in the contour
         w, vr = eig_pair_filter(w, vr, ctr.is_inside)
         # Calculate relative 2-norm for each eigen pairs, and find the maximum
-        res.append(np.amax(eig_residul(A, B, w, vr)))
+        res = np.amax(eig_residul(A, B, w, vr))
+        res_iter = res_iter + [res]
         count += 1
+        # Let S_0 be the source in next iteration
+        V = S[:, :opt.l]
     # Make up all imformations into info
-    info = {'residual': res, 'iter_count': count}
+    info = {'residual': res_iter, 'iter_count': count}
     return w, vr, info
 
 
@@ -145,7 +161,7 @@ def processing_with_solver(solver, args):
     return w * solver(z * B - A, B @ V)
 
 
-def complex_moment_builder(A, B, ctr, opt):
+def moment_builder(A, B, ctr, opt, solver, executor):
     """
     The builder of complex moment. Calculus the complex moment by solving
     linear equations on each quadrature points on contour.
@@ -171,14 +187,13 @@ def complex_moment_builder(A, B, ctr, opt):
     """
     ws = generate_weights_of_quadrature_points(ctr.df, opt.quadrature, opt.n)
     zs = generate_points_on_curve(ctr.func, opt.n)
-    V = opt.source(A.shape[0], opt.l)
-    proc = partial(processing_with_solver, opt.solver)
-    with opt.executor() as executor:
-        while True:
-            # Create processes for solving linear equations
-            Ys = executor.map(proc, ((w, z, A, B, V) for w, z in zip(ws, zs)))
-            # Since we will use Ys twice, create Ys explicit
-            Ys = list(Ys)
-            moment_k = lambda k: sum(z ** k * Y for (z, Y) in zip(zs, Ys))
-            yield np.hstack(moment_k(k) for k in range(opt.m))
-            V = sum(Ys)
+    proc = partial(processing_with_solver, solver)
+
+    def build_moment_with(V):
+        # Create processes for solving linear equations
+        Ys = executor.map(proc, ((w, z, A, B, V) for w, z in zip(ws, zs)))
+        # Since we will use Ys twice, create Ys explicit
+        Ys = list(Ys)
+        moment_k = lambda k: sum(z ** k * Y for (z, Y) in zip(zs, Ys))
+        return np.hstack(moment_k(k) for k in range(opt.m))
+    return build_moment_with

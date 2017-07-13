@@ -8,7 +8,7 @@ import numpy.testing as npt
 import scipy.io
 import pyss
 from pyss.util.contour import Circle, Ellipse
-
+from concurrent.futures import ProcessPoolExecutor
 
 decimal = 5
 
@@ -22,10 +22,11 @@ class TestPyss(npt.TestCase):
         B = scipy.io.mmread("matrix/bcsstm11.mtx")
         contour = Ellipse(real=200, imag=0.3, shift=900)
         D = D[contour.is_inside(D)]
-        option = {'l': 8, 'm': 2, 'n': 24}
-        eigvals, eigvecs, info = pyss.solve(A, B, contour, option)
-        eigvals = numpy.sort(eigvals)
-        npt.assert_array_almost_equal(eigvals, D, decimal=decimal)
+        option = {'l': 8, 'm': 2, 'n': 12}
+        with ProcessPoolExecutor() as executor:
+            ws, vs, info = pyss.solve(A, B, contour, option, executor)
+        ws = numpy.sort(ws)
+        npt.assert_array_almost_equal(ws, D, decimal=decimal)
 
     @unittest.skipIf('--quick' in sys.argv, 'Large amount computations')
     def test_pyss_size_4800(self):
@@ -35,7 +36,8 @@ class TestPyss(npt.TestCase):
         B = scipy.io.mmread("matrix/mhd4800b.mtx")
         contour = Circle(center=-100, radius=5)
         D = D[contour.is_inside(D)]
-        option = {'l': 20, 'm': 5, 'n': 24}
-        eigvals, eigvecs, info = pyss.solve(A, B, contour, option)
-        eigvals = numpy.sort(eigvals)
-        npt.assert_array_almost_equal(eigvals, D, decimal=decimal)
+        option = {'l': 20, 'm': 5, 'n': 12}
+        with ProcessPoolExecutor() as executor:
+            ws, vs, info = pyss.solve(A, B, contour, option, executor)
+        ws = numpy.sort(ws)
+        npt.assert_array_almost_equal(ws, D, decimal=decimal)

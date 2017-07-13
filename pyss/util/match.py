@@ -38,6 +38,29 @@ def replace_attr_if_match(mapper, dic):
     return dict(res)
 
 
+def replace_if_match(xs, y):
+    """
+    Find the first pattern match in list.
+
+    Return the corresponding value of patterns if matches,
+    return the same value of x if there has no match.
+    Parameters
+    ----------
+    xs : [(pattern, value)]
+    y : object
+
+    Returns
+    -------
+    result : object
+    """
+    # Find the first match in ys
+    matches = next(filter(lambda tup: tup[0] == y, xs), None)
+    if matches is None:
+        return y
+    else:
+        return matches[1]
+
+
 def __match_map(mapper, xs, res):
     """
     Parameters
@@ -63,31 +86,8 @@ def __match_map(mapper, xs, res):
         else:  # order == 0
             mkey, mvalues = m  # mkey and xkey are same value
             xkey, xvalue = x
-            match_value = __match(mvalues, xvalue)
+            match_value = replace_if_match(mvalues, xvalue)
             return __match_map(mtail, xtail, res + [(xkey, match_value)])
-
-
-def __match(xs, y):
-    """
-    Find the first pattern match in list.
-
-    Return the corresponding value of patterns if matches,
-    return the same value of x if there has no match.
-    Parameters
-    ----------
-    xs : [(pattern, value)]
-    y : object
-
-    Returns
-    -------
-    result : object
-    """
-    # Find the first match in ys
-    matches = next(filter(lambda tup: tup[0] == y, xs), None)
-    if matches is None:
-        return y
-    else:
-        return matches[1]
 
 
 def __compare_first(xs, ys):

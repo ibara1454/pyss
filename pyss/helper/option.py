@@ -1,31 +1,19 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from pyss.util.match import replace_attr_if_match
+from pyss.util.match import replace_if_match
 from pyss.algorithm import *
-from pyss.helper.generator import random_source_matrix
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from pyss.helper.source import *
 
 
-__mapper = {
-    'solver': [
-        ('linsolve', linsolve)
-    ],
-    'source': [
-        ('random', random_source_matrix)
-    ],
-    'quadrature': [
-        ('trapezoid', 1),
-        ('simpson', 2),
-        ('simpson3/8', 3),
-        ('boole', 4)
-    ],
-    'executor': [
-        ('process_pool_executor', ProcessPoolExecutor),
-        ('thread_pool_executor', ThreadPoolExecutor)
-    ]
-}
+__solver_mapper = [('linsolve', linsolve)]
+
+__source_mapper = [('random', random_source_matrix)]
 
 
-def replace_option(option):
-    return replace_attr_if_match(__mapper, option)
+def replace_source(source):
+    return replace_if_match(__source_mapper, source)
+
+
+def replace_solver(solver):
+    return replace_if_match(__solver_mapper, solver)

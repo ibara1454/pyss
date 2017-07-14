@@ -13,7 +13,8 @@ from pyss.helper.option import replace_source, replace_solver
 from pyss.algorithm import (
     trimmed_svd, shifted_rayleigh_ritz
 )
-
+from mpi4py import MPI
+import warning
 
 default_opt = {
     'l': 16,
@@ -28,6 +29,9 @@ default_opt = {
     'solver': 'linsolve',
     'source': 'random'
 }
+
+# Definete MPI root number
+root = 0
 
 
 def solve(A, B, contour, options, comm):
@@ -66,6 +70,14 @@ def solve(A, B, contour, options, comm):
     # parallelism
     options = AttrDict({**default_opt, **options})
 
+    size = MPI.Get_size()
+    rank = MPI.Get_rank()
+    if size < options.n:
+        if rank == 0:
+            warning.warn('MPI process number is lower than quadratures\'s')
+        return
+
+    
     source = replace_source(options.source)
     solver = replace_solver(options.solver)
 

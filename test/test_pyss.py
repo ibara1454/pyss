@@ -27,6 +27,7 @@ class TestPyss(npt.TestCase):
             ws, vs, info = pyss.solve(A, B, contour, option, executor)
         ws = numpy.sort(ws)
         npt.assert_array_almost_equal(ws, D, decimal=decimal)
+        print(info)
 
     @unittest.skipIf('--quick' in sys.argv, 'Large amount computations')
     def test_pyss_size_4800(self):

@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import numpy as np
+from math import floor
 from functools import partial
 from attrdict import AttrDict
 from pyss.helper.generator import (
@@ -9,12 +10,11 @@ from pyss.helper.generator import (
 )
 from pyss.analysis import eig_residul
 from pyss.helper.filter import eig_pair_filter
-from pyss.helper.option import replace_source, replace_solver
+from pyss.mpi.helper.option import replace_source, replace_solver
 from pyss.algorithm import (
     trimmed_svd, shifted_rayleigh_ritz
 )
 from mpi4py import MPI
-import warning
 
 default_opt = {
     'l': 16,
@@ -29,9 +29,6 @@ default_opt = {
     'solver': 'linsolve',
     'source': 'random'
 }
-
-# Definete MPI root number
-root = 0
 
 
 def solve(A, B, contour, options, comm):
@@ -70,18 +67,10 @@ def solve(A, B, contour, options, comm):
     # parallelism
     options = AttrDict({**default_opt, **options})
 
-    size = MPI.Get_size()
-    rank = MPI.Get_rank()
-    if size < options.n:
-        if rank == 0:
-            warning.warn('MPI process number is lower than quadratures\'s')
-        return
-
-    
     source = replace_source(options.source)
     solver = replace_solver(options.solver)
 
-    return pyss_impl_rr(A, B, contour, options, source, solver, executor)
+    return pyss_impl_rr(A, B, contour, options, source, solver, comm)
 
 
 def pyss_impl_rr(A, B, ctr, opt, source, solver, comm):
@@ -125,87 +114,53 @@ def pyss_impl_rr(A, B, ctr, opt, source, solver, comm):
         The right eigenvectors. Each eigenvector vr[:,i] is corresponding to
         the eigenvalue w[i].
     """
-    # Initializing
-    build_moment_with = moment_builder(A, B, ctr, opt, solver, comm)
-    # Build the first source matrix from given function
-    V = source(A.shape[0], opt.l)
-    res_iter = []
-    res = float('inf')
-    count = 0
-    # TODO: rewrite while loop without side-effects
-    # Do refinement until the residual is small enough
-    while count < opt.refinement.max_it and res > opt.refinement.tol:
-        S = build_moment_with(V)
+    rank = comm.Get_rank()
+    # Generate source matrix V
+    V = source(A.shape[0], opt.l) if rank == 0 else None
+    S = build_moment(A, B, V, ctr, opt, solver, comm)
+    w, vr, res = restrict_eig(A, B, S, ctr, comm)
+    if rank == 0:
+        print(res)
+        print(w)
+    return w, vr, res
+
+
+def restrict_eig(A, B, S, ctr, comm):
+    if comm.Get_rank() == 0:
         U, _, _ = trimmed_svd(S)
         # Solve the reduced eigenvalue problem with Rayleigh-Ritz Procedure
-        w, vr = shifted_rayleigh_ritz(A, B, U, shift=ctr.center)
+        eigval, eigvec = shifted_rayleigh_ritz(A, B, U, shift=ctr.center)
         # Filtering eigen pairs whether which located in the contour
-        w, vr = eig_pair_filter(w, vr, ctr.is_inside)
+        eigval, eigvec = eig_pair_filter(eigval, eigvec, ctr.is_inside)
         # Calculate relative 2-norm for each eigen pairs, and find the maximum
-        res = np.amax(eig_residul(A, B, w, vr))
-        res_iter = res_iter + [res]
-        count += 1
-        # Let S_0 be the source in next iteration
-        V = S[:, :opt.l]
-    # Make up all imformations into info
-    info = {'residual': res_iter, 'iter_count': count}
-    return w, vr, info
+        res = np.amax(eig_residul(A, B, eigval, eigvec))
+    else:
+        eigval = None
+        eigvec = None
+        res = None
+    res = comm.bcast(res)
+    return eigval, eigvec, res
 
 
-def processing_with_solver(solver, args):
-    """
-    The procedure using by Executor in building complex moment.
+def build_moment(A, B, V, ctr, opt, solver, comm):
+    rank = comm.Get_rank()
+    # Create a communicator (process 0 ~ n-1) to share V
+    per_n = floor(rank / opt.n)
+    y_comm = comm.Split(0 if per_n == 0 else MPI.UNDEFINED)
+    # Share source matrix V over y_comm
+    if y_comm != MPI.COMM_NULL:
+        V = y_comm.bcast(V)
+    index = rank % opt.n
+    w = generate_weights_of_quadrature_points(ctr.df, opt.quadrature, opt.n)[index]
+    z = generate_points_on_curve(ctr.func, opt.n)[index]
+    solve_comm = comm.Split(rank % opt.n)
+    # TODO: better parallelization for linear solver
+    V = solve_comm.bcast(V)
+    Y = solver(w * (z * B - A), B @ V, solve_comm)
+    # Reduce matrix sum of each process
+    S = y_comm.reduce(Y) if y_comm != MPI.COMM_NULL else None
+    Y = z * Y if y_comm != MPI.COMM_NULL else None
+    S2 = y_comm.reduce(Y) if y_comm != MPI.COMM_NULL else None
+    print(S)
 
-    Parameters
-    ----------
-    solver : callable
-        The linear solver of equation Ax = B.
-        `solver` recieves two arguments of array-like objects, and returns
-        a matrix.
-    args : tuple of (complex, complex, (n, n) array-like, (n, n) array-like,
-        (n, m) array-like)
-        `args` the tuple of (w, z, A, B, V), the the arguments recieved from
-        executor.map.
-    """
-    # Since the method which passed to executor.map must be Pickable,
-    # processing_with_solver is defined in the top level in this module
-    w, z, A, B, V = args
-    return w * solver(z * B - A, B @ V)
-
-
-def moment_builder(A, B, ctr, opt, solver, executor):
-    """
-    The builder of complex moment. Calculus the complex moment by solving
-    linear equations on each quadrature points on contour.
-
-    Parameters
-    ----------
-    A : (N, N) array_like
-        The complex or real square matrix in the generalized eigenvalue
-        problem.
-    b : (N, N) array_like
-        Right-hand side square matrix in the generalized eigenvalue problem.
-    ctr : pyss.util.contour.Curve
-        The contour where the eigenvalues we desired located inside.
-        `contour` is the instance of pyss.util.contour.Curve, which contains
-        the imformation of contour path.
-    opt : attrdict.AttrDict
-        The primary options of Pyss.
-
-    Returns
-    -------
-    S : (N, L*M) array
-        Complex moment.
-    """
-    ws = generate_weights_of_quadrature_points(ctr.df, opt.quadrature, opt.n)
-    zs = generate_points_on_curve(ctr.func, opt.n)
-    proc = partial(processing_with_solver, solver)
-
-    def build_moment_with(V):
-        # Create processes for solving linear equations
-        Ys = executor.map(proc, ((w, z, A, B, V) for w, z in zip(ws, zs)))
-        # Since we will use Ys twice, create Ys explicit
-        Ys = list(Ys)
-        moment_k = lambda k: sum(z ** k * Y for (z, Y) in zip(zs, Ys))
-        return np.hstack(moment_k(k) for k in range(opt.m))
-    return build_moment_with
+    return np.hstack([S, S2])

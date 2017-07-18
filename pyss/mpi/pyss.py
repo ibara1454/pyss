@@ -119,10 +119,8 @@ def pyss_impl_rr(A, B, ctr, opt, source, solver, comm):
     V = source(A.shape[0], opt.l) if rank == 0 else None
     S = build_moment(A, B, V, ctr, opt, solver, comm)
     w, vr, res = restrict_eig(A, B, S, ctr, comm)
-    if rank == 0:
-        print(res)
-        print(w)
     return w, vr, res
+    # return S
 
 
 def restrict_eig(A, B, S, ctr, comm):
@@ -156,11 +154,16 @@ def build_moment(A, B, V, ctr, opt, solver, comm):
     solve_comm = comm.Split(rank % opt.n)
     # TODO: better parallelization for linear solver
     V = solve_comm.bcast(V)
-    Y = solver(w * (z * B - A), B @ V, solve_comm)
+    Y = solver(z * B - A, B @ V, solve_comm)
+    if y_comm != MPI.COMM_NULL:
+        Y = Y * w
     # Reduce matrix sum of each process
     S = y_comm.reduce(Y) if y_comm != MPI.COMM_NULL else None
-    Y = z * Y if y_comm != MPI.COMM_NULL else None
-    S2 = y_comm.reduce(Y) if y_comm != MPI.COMM_NULL else None
-    print(S)
-
-    return np.hstack([S, S2])
+    S2 = y_comm.reduce(Y * z) if y_comm != MPI.COMM_NULL else None
+    S = []
+    if y_comm != MPI.COMM_NULL:
+        for m in range(opt.m):
+            Sk = y_comm.reduce(z ** m * Y)
+            S.append(Sk)
+        S = np.hstack(S)
+    return S

@@ -5,12 +5,12 @@ import scipy.io
 from pyss.util.contour import Circle
 
 
-A = scipy.io.mmread("matrix/mhd4800a.mtx")
-B = scipy.io.mmread("matrix/mhd4800b.mtx")
-contour = Circle(center=-100, radius=5)
+A = scipy.io.mmread("matrix/wathen100.mtx")
+B = scipy.sparse.eye(30401)
+contour = Circle(center=1, radius=0.1)
 option = {
-    'l': 20,
-    'm': 5,
+    'l': 10,
+    'm': 2,
     'n': 12,
     'refinement': {
         'max_it': 1,

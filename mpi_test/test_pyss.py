@@ -1,7 +1,7 @@
 import numpy
 import scipy.io
 import pyss.mpi
-from pyss.util.contour import Circle, Ellipse
+from pyss.util.contour import Ellipse
 from mpi4py import MPI
 
 A = scipy.io.mmread("matrix/bcsstk11.mtx")

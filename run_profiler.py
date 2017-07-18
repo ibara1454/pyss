@@ -5,7 +5,7 @@ from concurrent.futures import ProcessPoolExecutor
 import cProfile
 import pstats
 
-from profiler.profiler_mhd4800 import *
+from profiler.profiler_wathen100 import *
 import pyss
 
 if __name__ == '__main__':

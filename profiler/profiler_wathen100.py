@@ -9,7 +9,7 @@ A = scipy.io.mmread("matrix/wathen100.mtx")
 B = scipy.sparse.eye(30401)
 contour = Circle(center=1, radius=0.1)
 option = {
-    'l': 10,
+    'l': 100,
     'm': 2,
     'n': 12,
     'refinement': {

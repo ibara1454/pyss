@@ -11,7 +11,7 @@ contour = Circle(center=1, radius=0.1)
 option = {
     'l': 100,
     'm': 2,
-    'n': 12,
+    'n': 24,
     'refinement': {
         'max_it': 1,
         'tol': 1e-6

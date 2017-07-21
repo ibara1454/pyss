@@ -9,7 +9,7 @@ from profiler.profiler_wathen100 import *
 import pyss
 
 if __name__ == '__main__':
-    for p in range(1, 1 + 8):
+    for p in [24, 12, 8, 4, 2, 1]:
         print("==================Processes = {}==================".format(p))
         profiler = cProfile.Profile()
         profiler.enable()

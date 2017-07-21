@@ -125,6 +125,7 @@ def pyss_impl_rr(A, B, ctr, opt, source, solver, comm):
 
 def restrict_eig(A, B, S, ctr, comm):
     if comm.Get_rank() == 0:
+    #if False:
         U, _, _ = trimmed_svd(S)
         # Solve the reduced eigenvalue problem with Rayleigh-Ritz Procedure
         eigval, eigvec = shifted_rayleigh_ritz(A, B, U, shift=ctr.center)
@@ -154,7 +155,7 @@ def build_moment(A, B, V, ctr, opt, solver, comm):
     solve_comm = comm.Split(rank % opt.n)
     # TODO: better parallelization for linear solver
     V = solve_comm.bcast(V)
-    Y = solver(z * B - A, B @ V, solve_comm)
+    Y = solver(z * B - A, B @ V, solve_comm, comm)
     if y_comm != MPI.COMM_NULL:
         Y = Y * w
     # Reduce matrix sum of each process

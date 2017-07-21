@@ -6,7 +6,7 @@ import scipy.io
 from pyss.util.contour import Circle
 import cProfile
 import pstats
-from profiler.profiler_mhd4800 import *
+from profiler.profiler_wathen100 import *
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()

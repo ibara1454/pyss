@@ -9,7 +9,7 @@ A = scipy.io.mmread("matrix/mhd4800a.mtx")
 B = scipy.io.mmread("matrix/mhd4800b.mtx")
 contour = Circle(center=-100, radius=5)
 option = {
-    'l': 20,
+    'l': 50,
     'm': 5,
     'n': 12,
     'refinement': {

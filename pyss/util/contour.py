@@ -10,7 +10,7 @@ class Curve:
 
     An instance of Curve contains the imformation of such contour path.
     """
-    def __init__(self, func, df=None, step=2**-20):
+    def __init__(self, domain, func, df=None, step=2**-20):
         """
         Parameters
         ----------
@@ -28,11 +28,28 @@ class Curve:
             If `df` is given, then no `step` will be used in this function.
             Else, `step` will be the step size in numerical differentiation.
         """
+        self._domain = domain
         self.__func = func
         if df is not None:
             self.__df = df
         else:
             self.__df = self.__generate_df(step)
+
+    @property
+    def domain(self):
+        return self._domain
+
+    @property
+    def domain_begin(self):
+        return self._domain[0]
+
+    @property
+    def domain_end(self):
+        return self._domain[1]
+
+    @property
+    def domain_length(self):
+        return self.domain_end - self.domain_begin
 
     @property
     def func(self):
@@ -48,10 +65,12 @@ class Curve:
         Returns the center of jordan curve.
 
         Assume the center of jordan curve is the center of line passing through
-        f(0) and f(pi)
+        f(begin) and f(half)
         """
         # TODO: use arithmetic mean of n points instead
-        return (self.func(0) + self.func(numpy.pi)) / 2
+        begin = self.domain_begin
+        half = self.domain_end / 2
+        return (self.func(begin) + self.func(half)) / 2
 
     def is_inside(self, point):
         pass
@@ -119,7 +138,8 @@ class Ellipse(Curve):
 
         func = lambda x: real * numpy.cos(x) + 1j * imag * numpy.sin(x)
         df = lambda x: - real * numpy.sin(x) + 1j * imag * numpy.cos(x)
-        super().__init__(func=lambda x: trans(func(x)),
+        super().__init__(interval=(0, 2 * numpy.pi)
+                         func=lambda x: trans(func(x)),
                          df=lambda x: numpy.exp(1j * rot) * df(x))
 
     @property
@@ -135,7 +155,7 @@ class Ellipse(Curve):
         ----------
         pt : array_like
             Input array.
-        
+
         Returns
         -------
         bmaps : boolean array
@@ -180,7 +200,7 @@ class Circle(Ellipse):
         ----------
         pt : array_like
             Input array.
-        
+
         Returns
         -------
         bmaps : boolean array

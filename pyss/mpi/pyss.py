@@ -173,7 +173,7 @@ def build_moment(A, B, V, ctr, opt, comm):
     # Share source matrix V to each communicator which solves equations
     V = bcast_if_comm_is_not_null(V, head_comm)
     #
-    Y = solve_at_quadrature_point(A, B, V, ctr, opt, comm)
+    Y = solve_equation_(A, B, V, index, ctr, opt, comm)
     # Reduce matrix sum of each process
     S = reduce_integration(Y, ctr, opt, head_comm)
     return S

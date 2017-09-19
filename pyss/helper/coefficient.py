@@ -130,3 +130,4 @@ def composite_stable_newton_cotes_coeff(h, n, tr, cmpstn, contour=False):
     for i in range(0, cmpstn, n):
         xs[i:i + n + 1] = xs[i:i + n + 1] + basexs
     return xs
+

@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 import numpy as np
-from functools import partial
 from attrdict import AttrDict
 from pyss.helper.generator import (
     generate_points_on_curve, generate_weights_of_quadrature_points
@@ -15,6 +14,7 @@ from pyss.algorithm import (
 )
 from mpi4py import MPI
 
+
 default_opt = {
     'l': 16,
     'm': 8,
@@ -24,7 +24,6 @@ default_opt = {
         'tol': 1e-6
     },
     'quadrature': 1,
-    'symmetric': False,
     'solve': 'linsolve',
     'source': 'random'
 }
@@ -69,7 +68,8 @@ def solve(A, B, contour, options, comm):
     # TODO: Rename API replace_** names
     options.source = replace_source(options.source)
     options.solve = replace_solver(options.solve)
-
+    # TODO: Throw exception while the size of `comm` does not match `n` *
+    #       `opt.solver_comm_size`
     return pyss_impl_rr(A, B, contour, options, comm)
 
 
@@ -167,13 +167,15 @@ def rr_restrict_eig(A, B, S, ctr, comm):
 
 def build_moment(A, B, V, ctr, opt, comm):
     rank = comm.Get_rank()
-    index = int(rank / opt.n)
+    head_index = int(rank / opt.n)
     # Create a communicator for first n (process 0 ~ n-1) to share V
-    head_comm = comm.Split(0 if index == 0 else MPI.UNDEFINED)
+    head_comm = comm.Split(0 if head_index == 0 else MPI.UNDEFINED)
     # Share source matrix V to each communicator which solves equations
     V = bcast_if_comm_is_not_null(V, head_comm)
     #
-    Y = solve_equation_(A, B, V, index, ctr, opt, comm)
+    solve_index = rank % opt.n
+    solve_comm = comm.Split(solve_index)
+    Y = cal_value_on_quadrature_point(A, B, V, solve_index, ctr, opt, solve_comm)
     # Reduce matrix sum of each process
     S = reduce_integration(Y, ctr, opt, head_comm)
     return S
@@ -203,6 +205,18 @@ def bcast_if_comm_is_not_null(x, comm):
     else:
         x = None
     return x
+
+
+def cal_value_on_quadrature_point(A, B, V, index, ctr, opt, comm):
+    w = generate_weights_of_quadrature_points(ctr.df, opt.quadrature, opt.n)[index]
+    z = ctr.func(ctr.domain_length * index / opt.n)
+    dz = ctr.df(ctr.domain_length * index / opt.n)
+    # Since the solution after calling the linear solver, only exist in the
+    # node of rank 0 of communicator. Multiplying the weights to solution
+    # on single node might be a large cost.
+    # To minimize the cost, we multiply the weights to the right-hand side
+    # of equation before calling the solving function
+    return opt.solve(z * B - A, B @ V * (w * z * dz), comm)
 
 
 # TODO: Better rename API name

@@ -5,7 +5,7 @@ import scipy
 import scipy.sparse.linalg
 
 
-def linsolve(A, B, comm, world):
+def linsolve(A, B, comm):
     """
     Linear solver of Ax = B.
     Solver for general matrix A and B.
@@ -29,9 +29,7 @@ def linsolve(A, B, comm, world):
     # like blocked Bicgrq
     rank = comm.Get_rank()
     if rank == 0:
-        print("Start solve at world.rank = {}".format(world.Get_rank()))
         X = scipy.sparse.linalg.spsolve(A, B)
-        print("End solve at world.rank = {}".format(world.Get_rank()))
     else:
         X = None
     return X

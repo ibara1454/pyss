@@ -138,7 +138,7 @@ class Ellipse(Curve):
 
         func = lambda x: real * numpy.cos(x) + 1j * imag * numpy.sin(x)
         df = lambda x: - real * numpy.sin(x) + 1j * imag * numpy.cos(x)
-        super().__init__(interval=(0, 2 * numpy.pi)
+        super().__init__(domain=(0, 2 * numpy.pi)
                          func=lambda x: trans(func(x)),
                          df=lambda x: numpy.exp(1j * rot) * df(x))
 

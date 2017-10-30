@@ -114,39 +114,13 @@ def pyss_impl_rr(A, B, ctr, opt, comm):
         The right eigenvectors. Each eigenvector vr[:,i] is corresponding to
         the eigenvalue w[i].
     """
+    rank = comm.Get_rank()
+    solve_comm = comm.Split(rank / opt.n)
     # Generate source matrix V
-    V = build_source(A.shape[0], opt.l, opt, comm)
+    V = build_source(n=A.shape[0], m=opt.l, solve_comm)
     S = build_moment(A, B, V, ctr, opt, comm)
     w, vr, res = rr_restrict_eig(A, B, S, ctr, comm)
     return w, vr, res
-
-
-def build_source(n, m, opt, comm):
-    """
-    Generate source matrix on the root of given communicator.
-
-    Parameters
-    ----------
-    n : int
-        Size of row of source matrix.
-    m : int
-        Size of column of source matrix.
-    opt : ()
-        Pyss options.
-    comm : MPI_Comm
-        MPI communicator.
-
-    Returns
-    -------
-    V : (n, m) numpy dense array
-        Source matrix.
-    """
-    rank = comm.Get_rank()
-    if rank == 0:
-        V = opt.source(n, m)
-    else:
-        V = None
-    return V
 
 
 def rr_restrict_eig(A, B, S, ctr, comm):
@@ -167,17 +141,16 @@ def rr_restrict_eig(A, B, S, ctr, comm):
 
 def build_moment(A, B, V, ctr, opt, comm):
     rank = comm.Get_rank()
-    head_index = int(rank / opt.n)
-    # Create a communicator for first n (process 0 ~ n-1) to share V
-    head_comm = comm.Split(0 if head_index == 0 else MPI.UNDEFINED)
-    # Share source matrix V to each communicator which solves equations
-    V = bcast_if_comm_is_not_null(V, head_comm)
-    #
-    solve_index = rank % opt.n
-    solve_comm = comm.Split(solve_index)
-    Y = cal_value_on_quadrature_point(A, B, V, solve_index, ctr, opt, solve_comm)
+    solve_comm = comm.Split(rank / opt.n)
+
+    z = ctr.func(ctr.domain_length * index / opt.n)
+    # w = generate_weights_of_quadrature_points(ctr.df, opt.quadrature, opt.n)[index]
+    w = (2 * np.pi / opt.n) * 2
+    dz = ctr.df(ctr.domain_length * index / opt.n)
+    Y = w * dz * opt.solve(z * B - A, B @ V, sub_comm)
+    # Y = transform(Y)
     # Reduce matrix sum of each process
-    S = reduce_integration(Y, ctr, opt, head_comm)
+    S = reduce_integration(Y, ctr, opt)
     return S
 
 
@@ -245,8 +218,6 @@ def reduce_integration(A, B, V, ctr, opt, comm):
         # It could be done paralleled
         # w = w_i(quadrature, n, index)
         rank = comm.Get_rank()
-        w = generate_weights_of_quadrature_points(ctr.df, opt.quadrature, opt.n)[rank]
-        Y *= w
         S = np.hstack(Y * z ** k for z in range(opt.m))
         S = comm.reduce(S, op=MPI.SUM)
     else:

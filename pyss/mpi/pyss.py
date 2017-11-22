@@ -223,3 +223,15 @@ def reduce_integration(A, B, V, ctr, opt, comm):
     else:
         S = None
     return S
+
+
+def svd(A, comm):
+    # Calculate C* C, it must be positive definite
+    # but has large condition number
+    C = A.H @ A
+    C = MPI.allreduce(C)
+
+    L, delta, perm = ldl(C)
+    delta = np.diag(delta)
+    delta[delta <= 0] =
+

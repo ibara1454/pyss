@@ -6,7 +6,7 @@ import unittest
 import numpy
 import numpy.testing as npt
 import scipy.io
-import pyss
+import pyss.standalone
 from pyss.util.contour import Circle, Ellipse
 from concurrent.futures import ProcessPoolExecutor
 
@@ -22,9 +22,9 @@ class TestPyss(npt.TestCase):
         B = scipy.io.mmread("matrix/bcsstm11.mtx")
         contour = Ellipse(real=200, imag=0.3, shift=900)
         D = D[contour.is_inside(D)]
-        option = {'l': 8, 'm': 2, 'n': 12}
+        opt = {'l': 8, 'm': 2, 'n': 12}
         with ProcessPoolExecutor() as executor:
-            ws, vs, info = pyss.solve(A, B, contour, option, executor)
+            ws, vs, info = pyss.standalone.solve(A, B, contour, opt, executor)
         ws = numpy.sort(ws)
         npt.assert_array_almost_equal(ws, D, decimal=decimal)
 
@@ -36,8 +36,8 @@ class TestPyss(npt.TestCase):
         B = scipy.io.mmread("matrix/mhd4800b.mtx")
         contour = Circle(center=-100, radius=5)
         D = D[contour.is_inside(D)]
-        option = {'l': 20, 'm': 5, 'n': 12}
+        opt = {'l': 20, 'm': 5, 'n': 12}
         with ProcessPoolExecutor() as executor:
-            ws, vs, info = pyss.solve(A, B, contour, option, executor)
+            ws, vs, info = pyss.standalone.solve(A, B, contour, opt, executor)
         ws = numpy.sort(ws)
         npt.assert_array_almost_equal(ws, D, decimal=decimal)

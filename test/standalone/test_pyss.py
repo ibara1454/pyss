@@ -53,9 +53,9 @@ class TestPyss(npt.TestCase):
         A = scipy.io.mmread("matrix/shuttle_eddy.mtx")
         B = scipy.sparse.eye(10429)
         contour = Circle(center=20, radius=5)
-        option = {'l': 100, 'm': 5, 'n': 12, **no_refinement}
+        opt = {'l': 100, 'm': 5, 'n': 12, **no_refinement}
         with ProcessPoolExecutor() as executor:
-            ws, vs, info = pyss.solve(A, B, contour, option, executor)
+            ws, vs, info = pyss.standalone.solve(A, B, contour, opt, executor)
         print(info)
         npt.assert_almost_equal(info['residual'], 0, decimal=decimal)
 
@@ -64,9 +64,9 @@ class TestPyss(npt.TestCase):
         A = scipy.io.mmread("matrix/wathen100.mtx")
         B = scipy.sparse.eye(30401)
         contour = Circle(center=1, radius=0.1)
-        option = {'l': 10, 'm': 2, 'n': 12, **no_refinement}
+        opt = {'l': 10, 'm': 2, 'n': 12, **no_refinement}
         with ProcessPoolExecutor() as executor:
-            ws, vs, info = pyss.solve(A, B, contour, option, executor)
+            ws, vs, info = pyss.standalone.solve(A, B, contour, opt, executor)
         print(info)
         print(ws)
         npt.assert_almost_equal(info['residual'][-1], 0, decimal=decimal)

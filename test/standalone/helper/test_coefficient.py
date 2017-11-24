@@ -3,7 +3,7 @@
 
 import numpy as np
 import numpy.testing as npt
-import pyss.helper.coefficient as coeff
+import pyss.standalone.helper.coefficient as coeff
 
 h = 0.1
 

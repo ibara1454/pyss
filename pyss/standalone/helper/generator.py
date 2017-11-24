@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import numpy
-from pyss.helper.coefficient import composite_newton_cotes_coeff
+from pyss.standalone.helper.coefficient import composite_newton_cotes_coeff
 
 
 def generate_points_on_curve(f, n):

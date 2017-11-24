@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 
 from pyss.util.match import replace_if_match
-from pyss.algorithm import *
-from pyss.helper.source import *
+from pyss.standalone.algorithm import *
+from pyss.standalone.helper.source import *
 
 
 __solver_mapper = [('linsolve', linsolve)]

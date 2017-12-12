@@ -4,11 +4,11 @@
 import numpy as np
 from functools import partial
 from attrdict import AttrDict
-from pyss.standalone.helper.generator import (
+from pyss.util.generator import (
     generate_points_on_curve, generate_weights_of_quadrature_points
 )
 from pyss.standalone.helper.analysis import eig_residul
-from pyss.standalone.helper.filter import eig_pair_filter
+from pyss.util.filter import eig_pair_filter
 from pyss.standalone.helper.option import replace_source, replace_solver
 from pyss.standalone.algorithm import (
     trimmed_svd, shifted_rayleigh_ritz

@@ -3,15 +3,11 @@
 
 import numpy as np
 from attrdict import AttrDict
-from pyss.helper.generator import (
+from pyss.util.generator import (
     generate_points_on_curve, generate_weights_of_quadrature_points
 )
-from pyss.analysis import eig_residul
-from pyss.helper.filter import eig_pair_filter
-from pyss.mpi.helper.option import replace_source, replace_solver
-from pyss.algorithm import (
-    trimmed_svd, shifted_rayleigh_ritz
-)
+from pyss.util.analysis import eig_residul
+from pyss.util.filter import eig_pair_filter
 from mpi4py import MPI
 
 
@@ -117,7 +113,7 @@ def pyss_impl_rr(A, B, ctr, opt, comm):
     rank = comm.Get_rank()
     solve_comm = comm.Split(rank / opt.n)
     # Generate source matrix V
-    V = build_source(n=A.shape[0], m=opt.l, solve_comm)
+    V = build_source(A.shape[0], opt.l, solve_comm)
     S = build_moment(A, B, V, ctr, opt, comm)
     w, vr, res = rr_restrict_eig(A, B, S, ctr, comm)
     return w, vr, res
@@ -223,15 +219,3 @@ def reduce_integration(A, B, V, ctr, opt, comm):
     else:
         S = None
     return S
-
-
-def svd(A, comm):
-    # Calculate C* C, it must be positive definite
-    # but has large condition number
-    C = A.H @ A
-    C = MPI.allreduce(C)
-
-    L, delta, perm = ldl(C)
-    delta = np.diag(delta)
-    delta[delta <= 0] =
-

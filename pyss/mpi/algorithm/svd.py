@@ -36,12 +36,12 @@ def svd(a, comm, full_matrices=True, compute_uv=True, overwrite_a=False):
         Of shape (N, N) or (K, N) depending on full_matrices.
     For compute_uv=False, only s is returned.
     """
-    a, b = __dg_decomp(a, comm)
+    a, b = __dg_proc(a, comm)
     U, s, Vh = scipy.linalg.svd(b)
     return a @ U, s, Vh
 
 
-def __dg_decomp(a, comm):
+def __dg_proc(a, comm):
     """
     Special downgrade procedure. Which decreases the condition number of
     the multiplication `a* a`, where a is a matrix with large condition number.

@@ -4,7 +4,6 @@
 import numpy
 import scipy
 import scipy.linalg
-from mpi4py import MPI
 
 
 def svd(a, comm, full_matrices=True, compute_uv=True, overwrite_a=False):

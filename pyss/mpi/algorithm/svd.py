@@ -80,9 +80,9 @@ def __dg_proc(a, comm):
     d[d <= 0] = eps
     d12 = numpy.diag(d / 2)
     d12i = __inv_diag(d12)
-    # TODO: use more effecient way to calculate d12 @ li instead of inv(l)
-    li = numpy.linalg.inv(l)
-    return a @ l @ d12i, d12 @ li
+    # TODO: use more effecient way to calculate d12 @ li instead of solve
+    b = scipy.linalg.solve(l.T, d).T
+    return a @ l @ d12i, b
 
 
 def __inv_diag(a):

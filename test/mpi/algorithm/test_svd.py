@@ -18,7 +18,7 @@ def generate_real_test_matrix(m, n, k):
 
 
 def generate_complex_test_matrix(m, n, k):
-    return numpy.random.rand(m, n) + 1j * np.random.rand(m, n)
+    return numpy.random.rand(m, n) + 1j * numpy.random.rand(m, n)
 
 
 class TestSvd(npt.TestCase):

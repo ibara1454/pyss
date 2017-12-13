@@ -38,7 +38,8 @@ def svd(a, comm, full_matrices=True, compute_uv=True, overwrite_a=False):
     """
     a, b = __dg_proc(a, comm)
     U, s, Vh = scipy.linalg.svd(b)
-    return a @ U, s, Vh
+    U = a @ U
+    return U, s, Vh
 
 
 def __dg_proc(a, comm):
@@ -79,8 +80,9 @@ def __dg_proc(a, comm):
     d[d <= 0] = eps
     d12 = numpy.diag(d / 2)
     d12i = __inv_diag(d12)
-    lt = l.T
-    return l @ d12i, d12 @ lt
+    # TODO: use more effecient way to calculate d12 @ li instead of inv(l)
+    li = numpy.linalg.inv(l)
+    return a @ l @ d12i, d12 @ li
 
 
 def __inv_diag(a):

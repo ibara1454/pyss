@@ -13,7 +13,7 @@ def svd(a, comm, full_matrices=True, compute_uv=True, overwrite_a=False):
     Parameters
     ----------
     a : (M, N) array_like
-        Matrix to decompose. Which matrix is separeted over comm in
+        Matrix to decompose. Which matrix is separeted over `comm` in
         colume-direction.
     comm : MPI_comm
         MPI communicator.
@@ -29,16 +29,12 @@ def svd(a, comm, full_matrices=True, compute_uv=True, overwrite_a=False):
     -------
     U : Unitary matrix having left singular vectors as columns.
         Of shape (M, M) or (M, K), depending on full_matrices.
+        Which matrix is separeted over `comm` in colume-direction.
     s : The singular values, sorted in non-increasing order.
         Of shape (K,), with K = min(M, N).
     Vh : Unitary matrix having right singular vectors as rows.
         Of shape (N, N) or (K, N) depending on full_matrices.
     For compute_uv=False, only s is returned.
-
-    Raises
-    ------
-    LinAlgError
-        If SVD computation does not converge.
     """
     a, b = __dg_decomp(a, comm)
     U, s, Vh = scipy.linalg.svd(b)
@@ -47,19 +43,22 @@ def svd(a, comm, full_matrices=True, compute_uv=True, overwrite_a=False):
 
 def __dg_decomp(a, comm):
     """
-    Special downgrade decomposition. Which decreases the condition number of
+    Special downgrade procedure. Which decreases the condition number of
     the multiplication `a* a`, where a is a matrix with large condition number.
 
     Parameters
     ----------
     a : (M, N) array_like
-        Matrix with large condition number. Which is separeted over comm in
+        Matrix with large condition number. Which is separeted over `comm` in
         colume-direction.
     comm : MPI_comm
         MPI communicator.
     Returns
     -------
-
+    a' : (M, N) array_like
+        The downgrade matrix of given matrix `a`. With equation `a = a' b`
+    b : (N, N) array_like
+        The production of this downgrade procedure. With equation `a = a' b`
     Raises
     ------
     ValueError
@@ -75,7 +74,7 @@ def __dg_decomp(a, comm):
     c = comm.allreduce(c)
     # Do the same ldlt composition on all nodes
     l, d, _ = scipy.linalg.ldl(c)  # d is diagonal "matrix"
-    d = numpy.diag(d).copy()  # cause numpy.diag returns the read-only view
+    d = numpy.diag(d).copy()  # because numpy.diag returns the read-only view
     # Replace the invalid value with machine epsilon (Magic!!)
     d[d <= 0] = eps
     d12 = numpy.diag(d / 2)

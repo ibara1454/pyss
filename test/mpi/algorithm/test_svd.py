@@ -11,7 +11,7 @@ import itertools
 from mpi4py import MPI
 
 decimal_low = 2
-decimal_high = 4
+decimal_high = 5
 
 
 def generate_real_common_test_matrix(m, n):

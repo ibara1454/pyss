@@ -3,12 +3,13 @@
 
 import numpy
 import numpy.random
+import numpy.linalg
 import numpy.testing as npt
 import scipy
 import scipy.linalg
-import pyss.mpi.algorithm
 import itertools
 from mpi4py import MPI
+from pyss.mpi.algorithm import svd, svd_low_rank
 
 decimal_low = 2
 decimal_high = 5
@@ -43,7 +44,7 @@ class TestSvd(npt.TestCase):
         for (m, n) in itertools.product(ms, ns):
             with self.subTest(m=m, n=n):
                 a = generate_real_common_test_matrix(m, n)
-                U, s, Vh = pyss.mpi.algorithm.svd(a, self.comm)
+                U, s, Vh = svd(a, self.comm)
                 S = numpy.diag(s)
                 approx = U @ S @ Vh
                 npt.assert_array_almost_equal(approx, a, decimal=decimal_high)
@@ -54,7 +55,7 @@ class TestSvd(npt.TestCase):
         for (m, n) in itertools.product(ms, ns):
             with self.subTest(m=m, n=n):
                 a = generate_complex_common_test_matrix(m, n)
-                U, s, Vh = pyss.mpi.algorithm.svd(a, self.comm)
+                U, s, Vh = svd(a, self.comm)
                 S = numpy.diag(s)
                 approx = U @ S @ Vh
                 npt.assert_array_almost_equal(approx, a, decimal=decimal_high)
@@ -65,7 +66,7 @@ class TestSvd(npt.TestCase):
         for (m, n) in itertools.product(ms, ns):
             with self.subTest(m=m, n=n):
                 a = generate_complex_hard_test_matrix(m, n)
-                U, s, Vh = pyss.mpi.algorithm.svd(a, self.comm)
+                U, s, Vh = svd(a, self.comm)
                 S = numpy.diag(s)
                 approx = U @ S @ Vh
                 npt.assert_array_almost_equal(approx, a, decimal=decimal_low)

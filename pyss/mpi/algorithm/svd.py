@@ -6,7 +6,59 @@ import scipy
 import scipy.linalg
 
 
-def svd(a, comm, iters=1, compute_uv=True, overwrite_a=False):
+def svd_low_rank(a, comm, iter_n=1, tol=1e-6, compute_uv=True):
+    """
+    Low rank singular value decomposition with separeted matrix
+    on MPI parallelism.
+
+    Parameters
+    ----------
+    a : (M, N) array_like
+        Matrix to decompose. Which matrix is separeted over `comm` in
+        colume-direction.
+    comm : MPI_comm
+        MPI communicator.
+    iter_n : int
+        Iteration numbers of downgrade procedure.
+        use `iter=1` while the condition number of `a` is small,
+        use `iter=2` or further while the conditino number is large.
+        Over 3 times, the accumulation of round-off error might cause the
+        result with a large amount of error.
+    tol : float
+        Relative tolerance of low rank approximation.
+        The singular values `s_n` will be cut off if `(s_n / s_1) < tol`
+        where `s_1` is the largest singular value in `a`. Default is 1e-6.
+    compute_uv : bool, optional
+        Whether to compute also U and Vh in addition to s. Default is True.
+
+    Returns
+    -------
+    U : Unitary matrix having left singular vectors as columns.
+        Of shape (M, r).
+        Which matrix is separeted over `comm` in colume-direction.
+    s : The singular values, sorted in non-increasing order.
+        Of shape (r,), with r <= K = min(M, N).
+    Vh : Unitary matrix having right singular vectors as rows.
+        Of shape (r, N).
+    For compute_uv=False, only s is returned.
+    """
+    if compute_uv is True:
+        U, s, Vh = svd(a, comm, iter_n, compute_uv)
+    else:
+        s = svd(a, comm, iter_n, compute_uv)
+    # Filter `s` if the elements in `s` is larger than tol * first
+    first = s[0]
+    s = s[s > tol * first]
+    if compute_uv is True:
+        cut = len(s)
+        U = U[:, :cut]
+        Vh = Vh[:cut, :]
+        return U[:, :cut], s, Vh[:cut, :]
+    else:
+        return s
+
+
+def svd(a, comm, iter_n=1, compute_uv=True):
     """
     Singular value decomposition with separeted matrix on MPI parallelism.
 
@@ -17,7 +69,7 @@ def svd(a, comm, iters=1, compute_uv=True, overwrite_a=False):
         colume-direction.
     comm : MPI_comm
         MPI communicator.
-    iters : int
+    iter_n : int
         Iteration numbers of downgrade procedure.
         use `iter=1` while the condition number of `a` is small,
         use `iter=2` or further while the conditino number is large.
@@ -25,30 +77,56 @@ def svd(a, comm, iters=1, compute_uv=True, overwrite_a=False):
         result with a large amount of error.
     compute_uv : bool, optional
         Whether to compute also U and Vh in addition to s. Default is True.
-    overwrite_a : bool, optional
-        Whether to overwrite a; may improve performance. Default is False.
 
     Returns
     -------
     U : Unitary matrix having left singular vectors as columns.
-        Of shape (M, M) or (M, K), depending on full_matrices.
+        Of shape (M, K).
         Which matrix is separeted over `comm` in colume-direction.
     s : The singular values, sorted in non-increasing order.
         Of shape (K,), with K = min(M, N).
     Vh : Unitary matrix having right singular vectors as rows.
-        Of shape (N, N) or (K, N) depending on full_matrices.
+        Of shape (K, N).
     For compute_uv=False, only s is returned.
     """
-    a, b = __dg_proc_n(a, iters, comm)
-    U, s, Vh = scipy.linalg.svd(b)
-    U = a @ U
-    return U, s, Vh
+    a, b = __dg_proc_n(a, iter_n, comm)
+    if compute_uv is True:
+        U, s, Vh = scipy.linalg.svd(b)
+        return a @ U, s, Vh
+    else:
+        return scipy.linalg.svd(b, compute_uv)
 
 
-def __dg_proc_n(a, n, comm):
+def __dg_proc_n(a, iter_n, comm):
+    """
+    Special downgrade procedure. Which decreases the condition number of
+    the multiplication `a* a`, where a is a matrix with large condition number.
+
+    Parameters
+    ----------
+    a : (M, N) array_like
+        Matrix to decompose. Which matrix is separeted over `comm` in
+        colume-direction.
+    iter_n : int
+        Iteration numbers of downgrade procedure.
+        use `iter=1` while the condition number of `a` is small,
+        use `iter=2` or further while the conditino number is large.
+        Over 3 times, the accumulation of round-off error might cause the
+        result with a large amount of error.
+    comm : MPI_comm
+        MPI communicator.
+
+    Returns
+    -------
+    a' : (M, N) array_like
+        The downgrade matrix of given matrix `a`. With equation `a = a' b`
+    b : (N, N) array_like
+        The production of this downgrade procedure. With equation `a = a' b`
+    """
     row, col = a.shape
+    # b is identity matrix when iter_n == 0
     b = numpy.eye(col)
-    for _ in range(n):
+    for _ in range(iter_n):
         a, b_n = __dg_proc(a, comm)
         b = b_n @ b
     return a, b
@@ -81,8 +159,8 @@ def __dg_proc(a, comm):
         is given and hermitian is set to True.
     """
     eps = numpy.finfo(numpy.float).eps
-    # Calculate C* C, it must be positive definite
-    # but has large condition number
+    # Calculate a* a, it must be positive definite
+    # but has condition number square to a
     c = a.T.conj() @ a
     c = comm.allreduce(c)
     # Do the same ldlt composition on all nodes

@@ -4,6 +4,7 @@
 import numpy
 import scipy
 import scipy.linalg
+from pyss.mpi.util import operation
 
 
 def svd_low_rank(a, comm, iter_n=1, tol=1e-6, compute_uv=True):
@@ -159,10 +160,9 @@ def __dg_proc(a, comm):
         is given and hermitian is set to True.
     """
     eps = numpy.finfo(numpy.float).eps
-    # Calculate a* a, it must be positive definite
+    # Calculate a^H a, it must be positive definite
     # but has condition number square to a
-    c = a.T.conj() @ a
-    c = comm.allreduce(c)
+    c = operation.hv(a.T.conj(), a, comm)
     # Do the same ldlt composition on all nodes
     l, d, _ = scipy.linalg.ldl(c)  # d is diagonal "matrix"
     d = numpy.diag(d).copy()  # because numpy.diag returns the read-only view

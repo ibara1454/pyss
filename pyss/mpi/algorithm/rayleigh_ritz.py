@@ -3,6 +3,7 @@
 
 import scipy
 import scipy.linalg
+import pyss.mpi.util.operation.hv as hv
 
 
 def rayleigh_ritz(p, a, b, comm, left=False, right=True,

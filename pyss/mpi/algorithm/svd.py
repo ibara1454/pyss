@@ -4,7 +4,7 @@
 import numpy
 import scipy
 import scipy.linalg
-from pyss.mpi.util import operation
+import pyss.mpi.util.operation as operation
 
 
 def svd_low_rank(a, comm, iter_n=1, tol=1e-6, compute_uv=True):

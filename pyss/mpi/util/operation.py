@@ -25,11 +25,11 @@ def hv(h, v, comm):
     h : (M, K) array_like
         Distributed matrix (vector). The matrix (vector) is distributed on
         given communicator `comm` horizontally. In each node of `comm`, `h`
-        is with the size (M, K).
+        is with the shape (M, K).
     v : (K, N) array_like
         Distributed matrix (vector). The matrix (vector) is distributed on
         given communicator `comm` vertically. In each node of `comm`, `v`
-        is with the size (K, N).
+        is with the shape (K, N).
     comm : MPI_comm
         MPI communicator.
 

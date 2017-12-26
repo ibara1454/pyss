@@ -25,29 +25,70 @@ default_opt = {
 }
 
 
-def solve(A, B, contour, options, comm):
+def solve(l_a, l_b, cv, contour, comm,
+          solver=None, l=16, m=8, n=24):
     """
-    Sakurai-Sugiura method, a paralleled generalized eigenpair solver.
+    Sakurai-Sugiura method, paralleled generalized eigenpair solver on
+    MPI parallelism.
 
-    Sakurai-Sugiura method uses the contour integration and the complex
-    moment to computes eigenvalues located inside a contour path on the
+    Sakurai-Sugiura method uses contour integration and complex moment
+    to computes eigenvalues located inside a contour path on the
     complex plane.
+
+    ====================================================================
+
+    In this implementation, it splits given communicator `comm` into `n`
+    lower size sub-communicators `scomm`s (with size `ss = s / n` where
+    `s` denotes the size of `comm`, hence `n` should be a factor of `s`)
+    to compute each complex moment parallelly.
+
+    The matrix `a` and `b` in general eigenvalue problem `ax = λbx`
+    could be either numpy's ndarray or any matrix format distributed on
+    `scomm`, but user should define matrix loaders `l_a` and `l_b` to
+    load matrix after spliting `comm` into `scomm`, and matrix-matrix
+    multiplication `cv` on `scomm`.
+
+    User should also defined the solver `solver` of block linear equation
+    `ax = v` on `scomm`, where the whole `v` on `scomm` is with shape
+    (N, l), and is with shape (N / ss, l) on each node on `scomm`.
 
     Parameters
     ----------
-    A : (N, N) array_like
-        The complex or real square matrix in the generalized eigenvalue
-        problem.
-    b : (N, N) array_like
-        Right-hand side square matrix in the generalized eigenvalue problem.
+    l_a : Callable object with type `l_a(scomm: MPI_Comm) -> (N, N) array_like`
+        Matrix Loader of matrix `a` where `a` is a complex or real square
+        matrix with shape (N, N) in the generalized eigenvalue problem.
+    l_a : Callable object with type `l_a(scomm: MPI_Comm) -> (N, N) array_like`
+        Matrix Loader of matrix `b` where `b` is right-hand side square matrix
+        with shape (N, N) in the generalized eigenvalue problem.
+    cv : Callable object with type
+        `cv(c: (N, N) array_like, v: ndarray, scomm: MPI_Comm) -> ndarray`.
+        The function of multiplying of matrix `c` and matrix `v` on `scomm`,
+        where `c` is the matrix loaded by either `l_a` or `l_b`, and `v` is
+        ndarray with shape (N / rank, l) on each node of `scomm`.
+        The return value of `cv` should be a ndarray, and with the same shape
+        of `v`.
     contour : pyss.util.contour.Curve
         The contour where the eigenvalues we desired located inside.
         `contour` is the instance of pyss.util.contour.Curve, which contains
         the imformation of contour path.
-    options : dict
-        The primary options of Pyss.
     comm : MPI_Comm
-        MPI communicator.
+        MPI communicator. The size of `comm` should be a factor of `n`.
+    solver : Callable object with type
+        `solver(a: matrix, v: ndarray, scomm: MPI_Comm) -> ndarray`.
+        The solver of linear equation `ax = v` in communicator `scomm`,
+        where `a` is the matrix given by user, `v` is a ndarray with
+        shape (N / ss, l), and `ss` is the size of `scomm`. Notice that
+        solver should return the same data type and same shape to `v`.
+    l : Integer
+        Size of source matrix. The whole source matrix is with shape (N, l)
+        on `scomm`. And is with shape (N / ss, l) on each node of `scomm`.
+    m : Integer
+        Number of complex moment.
+    n : Integer
+        Number of quadrature points of numerical integrations. The
+        approximation error of numerical integration is inverse proportion
+        to `n`.
+
     Returns
     -------
     w : (n,) array, where n <= M
@@ -59,14 +100,15 @@ def solve(A, B, contour, options, comm):
     # Do not use class-base but function-base to implement this algorithm,
     # since functions have fewer side-effects, and are more familiar with MPI
     # parallelism
-    options = AttrDict({**default_opt, **options})
+    # options = AttrDict({**default_opt, **options})
 
     # TODO: Rename API replace_** names
-    options.source = replace_source(options.source)
-    options.solve = replace_solver(options.solve)
+    # options.source = replace_source(options.source)
+    # options.solve = replace_solver(options.solve)
     # TODO: Throw exception while the size of `comm` does not match `n` *
     #       `opt.solver_comm_size`
-    return pyss_impl_rr(A, B, contour, options, comm)
+    solve_comm = comm.Split(rank / opt.n)
+    return pyss_impl_rr(a, b, cv, contour, solve_comm)
 
 
 def pyss_impl_rr(A, B, ctr, opt, comm):

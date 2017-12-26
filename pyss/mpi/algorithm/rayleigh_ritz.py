@@ -6,14 +6,21 @@ import scipy.linalg
 import pyss.mpi.util.operation.hv as hv
 
 
-def rayleigh_ritz(p, a, b, comm, left=False, right=True,
-                  overwrite_a=False, overwrite_b=False,
+def rayleigh_ritz(cv, p, a, b, comm, left=False, right=True,
                   check_finite=True, homogeneous_eigvals=False):
     """
     Rayleigh-Ritz Procedure using MPI parallelism.
 
     Parameters
     ----------
+    cv : Callable object with type
+        `cv(c: (M, M) array_like, v: ndarray, scomm: MPI_Comm) -> ndarray`.
+        The function of multiplying of matrix `c` and matrix `v` on `scomm`,
+        where `v` is ndarray with shape (M / rank, l) on each node of `scomm`.
+        The return value of `cv` should be a ndarray, and with the same shape
+        of `v`.
+    p : (M, n) array_like
+        Semi-unitary matrix.
     a : (M, M) array_like
         A complex or real matrix whose eigenvalues and eigenvectors will be
         computed.
@@ -24,10 +31,6 @@ def rayleigh_ritz(p, a, b, comm, left=False, right=True,
         Whether to calculate and return left eigenvectors. Default is False.
     right : bool, optional
         Whether to calculate and return right eigenvectors. Default is True.
-    overwrite_a : bool, optional
-        Whether to overwrite a; may improve performance. Default is False.
-    overwrite_b : bool, optional
-        Whether to overwrite b; may improve performance. Default is False.
     check_finite : bool, optional
         Whether to check that the input matrices contain only finite numbers.
         Disabling may give a performance gain, but may result in problems
@@ -54,8 +57,11 @@ def rayleigh_ritz(p, a, b, comm, left=False, right=True,
     LinAlgError
         If eigenvalue computation does not converge.
     """
-    l = pap
-    m = pbp
-    return scipy.linalg.eig(l, m, left, right,
-                            overwrite_a, overwrite_b,
+    # Calculate (P^H A P) explicitly
+    l = hv(p.T.conj(), cv(a, p, comm), comm)
+    # Calculate (P^H B P) explicitly
+    m = hv(p.T.conj(), cv(b, p, comm), comm)
+    w, v = scipy.linalg.eig(l, m, left, right,
+                            overwrite_a=False, overwrite_b=False,
                             check_finite, homogeneous_eigvals)
+    return None

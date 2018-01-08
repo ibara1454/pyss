@@ -9,10 +9,11 @@ setup(
     packages=find_packages('pyss'),
     package_dir={'': 'pyss'},
     install_requires=[
-        'numpy>=1.10.0,<2'
+        'numpy>=1.10.0,<2',
+        'scipy==1.1.0.dev0+48f197b'
     ],
-    # need ldlt decomposition, on future release scipy 1.1
-    dependency_links=['git+ssh://git@github.com/scipy/scipy.git'],
+    # need ldlt decomposition, on future release of scipy 1.1
+    dependency_links=['https://github.com/scipy/scipy/tarball/master#egg=scipy-1.1.0.dev0+48f197b'],
     extras_require={
         "mpi": ["mpi4py>=2.0.0,<3"]
     },

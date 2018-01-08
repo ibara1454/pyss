@@ -4,10 +4,10 @@
 import numpy
 import scipy
 import scipy.linalg
-import pyss.mpi.util.operation as operation
+from pyss.mpi.util import operation
 
 
-def svd_low_rank(a, comm, iter_n=1, tol=1e-6, compute_uv=True):
+def svd_low_rank(a, iter_n, comm, tol=1e-6, compute_uv=True):
     """
     Low rank singular value decomposition with separeted matrix
     on MPI parallelism.
@@ -17,14 +17,14 @@ def svd_low_rank(a, comm, iter_n=1, tol=1e-6, compute_uv=True):
     a : (M, N) array_like
         Matrix to decompose. Which matrix is separeted over `comm` in
         colume-direction.
-    comm : MPI_comm
-        MPI communicator.
     iter_n : int
         Iteration numbers of downgrade procedure.
         use `iter=1` while the condition number of `a` is small,
         use `iter=2` or further while the conditino number is large.
         Over 3 times, the accumulation of round-off error might cause the
         result with a large amount of error.
+    comm : MPI_comm
+        MPI communicator.
     tol : float
         Relative tolerance of low rank approximation.
         The singular values `s_n` will be cut off if `(s_n / s_1) < tol`

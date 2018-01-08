@@ -3,22 +3,16 @@
 
 import scipy
 import scipy.linalg
-import pyss.mpi.util.operation.hv as hv
+from pyss.mpi.util.operation import hv
 
 
-def rayleigh_ritz(cv, p, a, b, comm, left=False, right=True,
+def rayleigh_ritz(p, a, b, cv, comm, left=False, right=True,
                   check_finite=True, homogeneous_eigvals=False):
     """
     Rayleigh-Ritz Procedure using MPI parallelism.
 
     Parameters
     ----------
-    cv : Callable object with type
-        `cv(c: (M, M) array_like, v: ndarray, scomm: MPI_Comm) -> ndarray`.
-        The function of multiplying of matrix `c` and matrix `v` on `scomm`,
-        where `v` is ndarray with shape (M / rank, l) on each node of `scomm`.
-        The return value of `cv` should be a ndarray, and with the same shape
-        of `v`.
     p : (M, n) array_like
         Semi-unitary matrix.
     a : (M, M) array_like
@@ -27,6 +21,12 @@ def rayleigh_ritz(cv, p, a, b, comm, left=False, right=True,
     b : (M, M) array_like, optional
         Right-hand side matrix in a generalized eigenvalue problem.
         Default is None, identity matrix is assumed.
+    cv : Callable object with type
+        `cv(c: (M, M) array_like, v: ndarray, scomm: MPI_Comm) -> ndarray`.
+        The function of multiplying of matrix `c` and matrix `v` on `scomm`,
+        where `v` is ndarray with shape (M / rank, l) on each node of `scomm`.
+        The return value of `cv` should be a ndarray, and with the same shape
+        of `v`.
     left : bool, optional
         Whether to calculate and return left eigenvectors. Default is False.
     right : bool, optional
@@ -61,7 +61,10 @@ def rayleigh_ritz(cv, p, a, b, comm, left=False, right=True,
     l = hv(p.T.conj(), cv(a, p, comm), comm)
     # Calculate (P^H B P) explicitly
     m = hv(p.T.conj(), cv(b, p, comm), comm)
+
+    overwrite_a = False
+    overwrite_b = False
     w, v = scipy.linalg.eig(l, m, left, right,
-                            overwrite_a=False, overwrite_b=False,
+                            overwrite_a, overwrite_b,
                             check_finite, homogeneous_eigvals)
-    return None
+    return w, v

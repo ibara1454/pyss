@@ -25,6 +25,7 @@ branches:
     - test
 
 before_install:
+  - ./conf/install-blas.sh
   - ./conf/install-mpi.sh $MPI
   - python -m pip install Cython
   - python$PY --version

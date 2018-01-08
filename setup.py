@@ -3,10 +3,13 @@
 
 from setuptools import setup, find_packages
 
+print(find_packages("pyss"))
+
 setup(
     name='pyss',
     version='0.1.0',
-    packages=find_packages("pyss"),
+    packages=find_packages('pyss'),
+    package_dir={'': 'pyss'},
     install_requires=[
         'numpy>=1.10.0,<2'
     ],

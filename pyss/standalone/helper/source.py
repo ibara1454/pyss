@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import numpy
+import numpy.random
 
 
 def random_source_matrix(rows, cols):
@@ -20,4 +21,8 @@ def random_source_matrix(rows, cols):
     V : (rows, cols) array
         Source matrix, of shape (rows, cols).
     """
+    # TODO: Another way to make the source matrix fixed.
+    # Make the source matrix fixed. To make sure unit test
+    # returns the same result each times.
+    numpy.random.seed(0)
     return numpy.random.rand(rows, cols)

@@ -28,11 +28,11 @@ class TestPyss(npt.TestCase):
         B = scipy.io.mmread("matrix/bcsstm11.mtx")
         contour = Ellipse(real=200, imag=0.3, shift=900)
         D = D[contour.is_inside(D)]
-        opt = {'l': 8, 'm': 2, 'n': 12}
+        l, m, n = 8, 2, 12
         with ProcessPoolExecutor() as executor:
-            ws, vs, info = pyss.standalone.solve(A, B, contour, opt, executor)
+            ws, vs, res = pyss.standalone.solve(A, B, contour, l, m, n, executor)
         ws = numpy.sort(ws)
-        npt.assert_array_almost_equal(ws, D, decimal=decimal)
+        npt.assert_array_almost_equal(D, ws, decimal=decimal)
 
     @unittest.skipIf('--quick' in sys.argv, 'Large amount computations')
     def test_pyss_size_4800(self):
@@ -42,31 +42,28 @@ class TestPyss(npt.TestCase):
         B = scipy.io.mmread("matrix/mhd4800b.mtx")
         contour = Circle(center=-100, radius=5)
         D = D[contour.is_inside(D)]
-        opt = {'l': 20, 'm': 5, 'n': 12}
+        l, m, n = 20, 8, 12
         with ProcessPoolExecutor() as executor:
-            ws, vs, info = pyss.standalone.solve(A, B, contour, opt, executor)
+            ws, vs, res = pyss.standalone.solve(A, B, contour, l, m, n, executor)
         ws = numpy.sort(ws)
-        npt.assert_array_almost_equal(ws, D, decimal=decimal)
+        npt.assert_array_almost_equal(D, ws, decimal=decimal)
 
     @unittest.skipIf('--quick' in sys.argv, 'Large amount computations')
     def test_pyss_size_10429(self):
         A = scipy.io.mmread("matrix/shuttle_eddy.mtx")
         B = scipy.sparse.eye(10429)
         contour = Circle(center=20, radius=5)
-        opt = {'l': 100, 'm': 5, 'n': 12, **no_refinement}
+        l, m, n = 100, 5, 12
         with ProcessPoolExecutor() as executor:
-            ws, vs, info = pyss.standalone.solve(A, B, contour, opt, executor)
-        print(info)
-        npt.assert_almost_equal(info['residual'], 0, decimal=decimal)
+            ws, vs, res = pyss.standalone.solve(A, B, contour, l, m, n, executor)
+        npt.assert_almost_equal(res, 0, decimal=decimal)
 
     @unittest.skipIf('--quick' in sys.argv, 'Large amount computations')
     def test_pyss_size_30401(self):
         A = scipy.io.mmread("matrix/wathen100.mtx")
         B = scipy.sparse.eye(30401)
         contour = Circle(center=1, radius=0.1)
-        opt = {'l': 10, 'm': 2, 'n': 12, **no_refinement}
+        l, m, n = 10, 2, 12
         with ProcessPoolExecutor() as executor:
-            ws, vs, info = pyss.standalone.solve(A, B, contour, opt, executor)
-        print(info)
-        print(ws)
-        npt.assert_almost_equal(info['residual'][-1], 0, decimal=decimal)
+            ws, vs, res = pyss.standalone.solve(A, B, contour, l, m, n, executor)
+        npt.assert_almost_equal(res, 0, decimal=decimal)

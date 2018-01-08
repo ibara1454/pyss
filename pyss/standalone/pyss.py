@@ -7,8 +7,8 @@ from attrdict import AttrDict
 from pyss.util.generator import (
     generate_points_on_curve, generate_weights_of_quadrature_points
 )
-from pyss.standalone.helper.analysis import eig_residul
-from pyss.util.filter import eig_pair_filter
+from pyss.util.analysis import eig_residul
+from pyss.util.contour import inside_filter
 from pyss.standalone.helper.option import replace_source, replace_solver
 from pyss.standalone.algorithm import (
     trimmed_svd, shifted_rayleigh_ritz
@@ -30,7 +30,7 @@ default_opt = {
 }
 
 
-def solve(A, B, contour, options, executor):
+def solve(A, B, contour, l, m, n, executor):
     """
     Sakurai-Sugiura method, a paralleled generalized eigenpair solver.
 
@@ -49,8 +49,6 @@ def solve(A, B, contour, options, executor):
         The contour where the eigenvalues we desired located inside.
         `contour` is the instance of pyss.util.contour.Curve, which contains
         the imformation of contour path.
-    options : dict
-        The primary options of Pyss.
     executor : concurrent.futures.Executor
         Instance of executor. Used in calculating complex moment in ss-method.
     Returns
@@ -64,15 +62,15 @@ def solve(A, B, contour, options, executor):
     # Do not use class-base but function-base to implement this algorithm,
     # since functions have fewer side-effects, and are more familiar with MPI
     # parallelism
-    options = AttrDict({**default_opt, **options})
 
-    source = replace_source(options.source)
-    solver = replace_solver(options.solver)
+    # TODO: Remove hard coding
+    source = replace_source('random')
+    solver = replace_solver('linsolve')
 
-    return pyss_impl_rr(A, B, contour, options, source, solver, executor)
+    return pyss_impl_rr(A, B, contour, l, m, n, source, solver, executor)
 
 
-def pyss_impl_rr(A, B, ctr, opt, source, solver, executor):
+def pyss_impl_rr(A, B, ctr, l, m, n, source, solver, executor):
     """
     The implementation part of Sakurai-Sugiura method using Rayleigh-Ritz
     procedure.
@@ -114,30 +112,21 @@ def pyss_impl_rr(A, B, ctr, opt, source, solver, executor):
         the eigenvalue w[i].
     """
     # Initializing
-    build_moment_with = moment_builder(A, B, ctr, opt, solver, executor)
+    build_moment_with = moment_builder(A, B, ctr, m, n, solver, executor)
     # Build the first source matrix from given function
-    V = source(A.shape[0], opt.l)
-    res_iter = []
-    res = float('inf')
-    count = 0
+    V = source(A.shape[0], l)
     # TODO: rewrite while loop without side-effects
     # Do refinement until the residual is small enough
-    while count < opt.refinement.max_it and res > opt.refinement.tol:
-        S = build_moment_with(V)
-        U, _, _ = trimmed_svd(S)
-        # Solve the reduced eigenvalue problem with Rayleigh-Ritz Procedure
-        w, vr = shifted_rayleigh_ritz(A, B, U, shift=ctr.center)
-        # Filtering eigen pairs whether which located in the contour
-        w, vr = eig_pair_filter(w, vr, ctr.is_inside)
-        # Calculate relative 2-norm for each eigen pairs, and find the maximum
-        res = np.amax(eig_residul(A, B, w, vr))
-        res_iter = res_iter + [res]
-        count += 1
-        # Let S_0 be the source in next iteration
-        V = S[:, :opt.l]
-    # Make up all imformations into info
-    info = {'residual': res_iter, 'iter_count': count}
-    return w, vr, info
+    # while count < opt.refinement.max_it and res > opt.refinement.tol:
+    S = build_moment_with(V)
+    U, _, _ = trimmed_svd(S)
+    # Solve the reduced eigenvalue problem with Rayleigh-Ritz Procedure
+    w, vr = shifted_rayleigh_ritz(A, B, U, shift=ctr.center)
+    # Filtering eigen pairs whether which located in the contour
+    w, vr = inside_filter(w, vr, ctr)
+    # Calculate relative 2-norm for each eigen pairs, and find the maximum
+    res = np.amax(eig_residul(A, B, w, vr))
+    return w, vr, res
 
 
 def processing_with_solver(solver, args):
@@ -161,7 +150,7 @@ def processing_with_solver(solver, args):
     return w * solver(z * B - A, B @ V)
 
 
-def moment_builder(A, B, ctr, opt, solver, executor):
+def moment_builder(A, B, ctr, m, n, solver, executor):
     """
     The builder of complex moment. Calculus the complex moment by solving
     linear equations on each quadrature points on contour.
@@ -185,8 +174,9 @@ def moment_builder(A, B, ctr, opt, solver, executor):
     S : (N, L*M) array
         Complex moment.
     """
-    ws = generate_weights_of_quadrature_points(ctr.df, opt.quadrature, opt.n)
-    zs = generate_points_on_curve(ctr.func, opt.n)
+    degree = 1
+    ws = generate_weights_of_quadrature_points(ctr.df, degree, n)
+    zs = generate_points_on_curve(ctr.func, n)
     proc = partial(processing_with_solver, solver)
 
     def build_moment_with(V):
@@ -195,5 +185,5 @@ def moment_builder(A, B, ctr, opt, solver, executor):
         # Since we will use Ys twice, create Ys explicit
         Ys = list(Ys)
         moment_k = lambda k: sum(z ** k * Y for (z, Y) in zip(zs, Ys))
-        return np.hstack(moment_k(k) for k in range(opt.m))
+        return np.hstack(moment_k(k) for k in range(m))
     return build_moment_with

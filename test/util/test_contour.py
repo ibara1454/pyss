@@ -19,7 +19,7 @@ class TestContour(npt.TestCase):
 
     def test_df(self):
         for case in self.cases:
-            curve = Curve(func=case['curve'])
+            curve = Curve(domain=[0, 2 * numpy.pi], func=case['curve'])
             for v in test_value:
                 npt.assert_almost_equal(case['df'](v), curve.df(v))
 

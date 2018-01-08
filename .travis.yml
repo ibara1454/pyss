@@ -4,8 +4,8 @@ python:
   - "3.6"
 
 env:
-  - "MPI=mpich PY=3"
-  - "MPI=openmpi PY=3"
+  - "MPI=mpich"
+  - "MPI=openmpi"
 
 os: linux
 dist: trusty

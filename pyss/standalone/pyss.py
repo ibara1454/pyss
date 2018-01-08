@@ -8,7 +8,7 @@ from pyss.util.generator import (
     generate_points_on_curve, generate_weights_of_quadrature_points
 )
 from pyss.util.analysis import eig_residul
-from pyss.util.filter import eig_pair_filter
+from pyss.util.contour import inside_filter
 from pyss.standalone.helper.option import replace_source, replace_solver
 from pyss.standalone.algorithm import (
     trimmed_svd, shifted_rayleigh_ritz
@@ -63,6 +63,7 @@ def solve(A, B, contour, l, m, n, executor):
     # since functions have fewer side-effects, and are more familiar with MPI
     # parallelism
 
+    # TODO: Remove hard coding
     source = replace_source('random')
     solver = replace_solver('linsolve')
 
@@ -114,7 +115,6 @@ def pyss_impl_rr(A, B, ctr, l, m, n, source, solver, executor):
     build_moment_with = moment_builder(A, B, ctr, m, n, solver, executor)
     # Build the first source matrix from given function
     V = source(A.shape[0], l)
-    count = 0
     # TODO: rewrite while loop without side-effects
     # Do refinement until the residual is small enough
     # while count < opt.refinement.max_it and res > opt.refinement.tol:
@@ -123,12 +123,9 @@ def pyss_impl_rr(A, B, ctr, l, m, n, source, solver, executor):
     # Solve the reduced eigenvalue problem with Rayleigh-Ritz Procedure
     w, vr = shifted_rayleigh_ritz(A, B, U, shift=ctr.center)
     # Filtering eigen pairs whether which located in the contour
-    w, vr = eig_pair_filter(w, vr, ctr.is_inside)
+    w, vr = inside_filter(w, vr, ctr)
     # Calculate relative 2-norm for each eigen pairs, and find the maximum
     res = np.amax(eig_residul(A, B, w, vr))
-    count += 1
-    # Let S_0 be the source in next iteration
-    # V = S[:, :l]
     return w, vr, res
 
 

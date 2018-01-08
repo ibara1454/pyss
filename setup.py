@@ -8,11 +8,10 @@ setup(
     version='0.1.0',
     packages=find_packages(),
     install_requires=[
-        'numpy>=1.10.0,<2',
-        'attrdict==2.0.0'
+        'numpy>=1.10.0,<2'
     ],
     # need ldlt decomposition, on future release scipy 1.1
-    dependency_links=['https://github.com/scipy/scipy'],
+    dependency_links=['git+ssh://git@github.com/scipy/scipy.git'],
     extras_require={
         "mpi": ["mpi4py>=2.0.0,<3"]
     },

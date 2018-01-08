@@ -2,14 +2,9 @@
 # -*- coding: utf-8 -*-
 
 import numpy as np
-from attrdict import AttrDict
-from pyss.util.generator import (
-    generate_points_on_curve, generate_weights_of_quadrature_points
-)
-from pyss.util.analysis import eig_residul
-from pyss.util.filter import eig_pair_filter
-from mpi4py import MPI
-
+import numpy.random
+from pyss.mpi.algorithm import svd_low_rank, rayleigh_ritz
+from pyss.util.contour import inside_filter
 
 default_opt = {
     'l': 16,
@@ -25,8 +20,7 @@ default_opt = {
 }
 
 
-def solve(l_a, l_b, cv, contour, comm,
-          solver=None, l=16, m=8, n=24):
+def solve(l_a, l_b, contour, l, m, n, solver, cv, comm):
     """
     Sakurai-Sugiura method, paralleled generalized eigenpair solver on
     MPI parallelism.
@@ -60,25 +54,10 @@ def solve(l_a, l_b, cv, contour, comm,
     l_a : Callable object with type `l_a(scomm: MPI_Comm) -> (N, N) array_like`
         Matrix Loader of matrix `b` where `b` is right-hand side square matrix
         with shape (N, N) in the generalized eigenvalue problem.
-    cv : Callable object with type
-        `cv(c: (N, N) array_like, v: ndarray, scomm: MPI_Comm) -> ndarray`.
-        The function of multiplying of matrix `c` and matrix `v` on `scomm`,
-        where `c` is the matrix loaded by either `l_a` or `l_b`, and `v` is
-        ndarray with shape (N / rank, l) on each node of `scomm`.
-        The return value of `cv` should be a ndarray, and with the same shape
-        of `v`.
     contour : pyss.util.contour.Curve
         The contour where the eigenvalues we desired located inside.
         `contour` is the instance of pyss.util.contour.Curve, which contains
         the imformation of contour path.
-    comm : MPI_Comm
-        MPI communicator. The size of `comm` should be a factor of `n`.
-    solver : Callable object with type
-        `solver(a: matrix, v: ndarray, scomm: MPI_Comm) -> ndarray`.
-        The solver of linear equation `ax = v` in communicator `scomm`,
-        where `a` is the matrix given by user, `v` is a ndarray with
-        shape (N / ss, l), and `ss` is the size of `scomm`. Notice that
-        solver should return the same data type and same shape to `v`.
     l : Integer
         Size of source matrix. The whole source matrix is with shape (N, l)
         on `scomm`. And is with shape (N / ss, l) on each node of `scomm`.
@@ -88,6 +67,21 @@ def solve(l_a, l_b, cv, contour, comm,
         Number of quadrature points of numerical integrations. The
         approximation error of numerical integration is inverse proportion
         to `n`.
+    solver : Callable object with type
+        `solver(a: matrix, v: ndarray, scomm: MPI_Comm) -> ndarray`.
+        The solver of linear equation `ax = v` in communicator `scomm`,
+        where `a` is the matrix given by user, `v` is a ndarray with
+        shape (N / ss, l), and `ss` is the size of `scomm`. Notice that
+        solver should return the same data type and same shape to `v`.
+    cv : Callable object with type
+        `cv(c: (N, N) array_like, v: ndarray, scomm: MPI_Comm) -> ndarray`.
+        The function of multiplying of matrix `c` and matrix `v` on `scomm`,
+        where `c` is the matrix loaded by either `l_a` or `l_b`, and `v` is
+        ndarray with shape (N / rank, l) on each node of `scomm`.
+        The return value of `cv` should be a ndarray, and with the same shape
+        of `v`.
+    comm : MPI_Comm
+        MPI communicator. The size of `comm` should be a factor of `n`.
 
     Returns
     -------
@@ -102,16 +96,12 @@ def solve(l_a, l_b, cv, contour, comm,
     # parallelism
     # options = AttrDict({**default_opt, **options})
 
-    # TODO: Rename API replace_** names
-    # options.source = replace_source(options.source)
-    # options.solve = replace_solver(options.solve)
     # TODO: Throw exception while the size of `comm` does not match `n` *
     #       `opt.solver_comm_size`
-    solve_comm = comm.Split(rank / opt.n)
-    return pyss_impl_rr(a, b, cv, contour, solve_comm)
+    return pyss_impl_rr(l_a, l_b, contour, l, m, n, solver, cv, comm)
 
 
-def pyss_impl_rr(A, B, ctr, opt, comm):
+def pyss_impl_rr(l_a, l_b, contour, l, m, n, solver, cv, comm):
     """
     The implementation part of Sakurai-Sugiura method using Rayleigh-Ritz
     procedure.
@@ -123,141 +113,61 @@ def pyss_impl_rr(A, B, ctr, opt, comm):
     procedure. If the residuals of eigenvalues and eigenvectors are not small
     enough, the complex moment S will be regenerate until the residual reaches
     tolerance.
-
-    Parameters
-    ----------
-    A : (N, N) array_like
-        The complex or real square matrix in the generalized eigenvalue
-        problem.
-    b : (N, N) array_like
-        Right-hand side square matrix in the generalized eigenvalue problem.
-    ctr : pyss.util.contour.Curve
-        The contour where the eigenvalues we desired located inside.
-        `contour` is the instance of pyss.util.contour.Curve, which contains
-        the imformation of contour path.
-    opt : attrdict.AttrDict
-        The primary options of Pyss.
-    source : function
-        The generator of source matrix.
-    solver : function
-        The solver of linear equation of Ax = B.
-    comm : MPI_Comm
-        MPI communicator.
-
-    Returns
-    -------
-    w : (n,) array, where n <= M
-        The eigenvalues.
-    vr : (n, N) array, where n <= N
-        The right eigenvectors. Each eigenvector vr[:,i] is corresponding to
-        the eigenvalue w[i].
     """
+    # Initializations
     rank = comm.Get_rank()
-    solve_comm = comm.Split(rank / opt.n)
-    # Generate source matrix V
-    V = build_source(A.shape[0], opt.l, solve_comm)
-    S = build_moment(A, B, V, ctr, opt, comm)
-    w, vr, res = rr_restrict_eig(A, B, S, ctr, comm)
+    row_index = rank // opt.n
+    col_index = rank % opt.n
+    ccomm = comm.Split(row_index)
+    rcomm = comm.Split(col_index)
+
+    a = l_a(ccomm)
+    b = l_b(ccomm)
+    v = build_source((A.shape[0], l), ccomm)
+    # Build the parts of moment on each `ccomm`
+    s = build_partial_moment(a, b, v, ctr, col_index, m, solver, cv, ccomm)
+    # Build the same moment on each `ccomm` (share data column-wisely)
+    s = build_total_moment(s, rcomm)
+    # Calculate eigenpairs on each `ccomm`
+    w, vr, res = rr_restrict_eig(s, a, b, ctr, cv, ccomm)
     return w, vr, res
 
 
-def rr_restrict_eig(A, B, S, ctr, comm):
+def build_source(shape, comm):
+    size = comm.Get_size()
     rank = comm.Get_rank()
-    if rank == 0:
-        U, _, _ = trimmed_svd(S)
-        # Solve the reduced eigenvalue problem with Rayleigh-Ritz Procedure
-        eigval, eigvec = shifted_rayleigh_ritz(A, B, U, shift=ctr.center)
-        # Filtering eigen pairs whether which located in the contour
-        eigval, eigvec = eig_pair_filter(eigval, eigvec, ctr.is_inside)
-        # Calculate relative 2-norm for each eigen pairs, and find the maximum
-        res = np.amax(eig_residul(A, B, eigval, eigvec))
-    else:
-        eigval, eigvec, res = [None, None, None]
-    res = comm.bcast(res)
-    return eigval, eigvec, res
+    # Fix the random seed to ensure the source matrix is unique on each node
+    # of `comm`. But the same matrix on each node of the same rank (on other
+    # communicators)
+    # TODO: try use id(comm) * rank
+    np.random.seed(rank)
+    # Generate random matrix `v`, which is distributed on `comm` vertically
+    v = np.random.rand(shape[0] / size, shape[1])
+    return v
 
 
-def build_moment(A, B, V, ctr, opt, comm):
-    rank = comm.Get_rank()
-    solve_comm = comm.Split(rank / opt.n)
-
+def build_partial_moment(a, b, v, ctr, index, m, solver, cv, comm):
     z = ctr.func(ctr.domain_length * index / opt.n)
-    # w = generate_weights_of_quadrature_points(ctr.df, opt.quadrature, opt.n)[index]
+    df = ctr.df(ctr.domain_length * index / opt.n)
     w = (2 * np.pi / opt.n) * 2
-    dz = ctr.df(ctr.domain_length * index / opt.n)
-    Y = w * dz * opt.solve(z * B - A, B @ V, sub_comm)
-    # Y = transform(Y)
-    # Reduce matrix sum of each process
-    S = reduce_integration(Y, ctr, opt)
-    return S
+    x = (w * df) * solver(z * b - a, cv(b, v, comm), comm)
+    # Build m (partial) moment and combine along row axis
+    # Use generator instead of build matrix directly
+    s = np.hstack((z ** k) * x for k in range(m))
+    return s
 
 
-def bcast_if_comm_is_not_null(x, comm):
-    """
-    MPI broadcast. Broadcast object over given communicator only if the
-    communicator is not null.
-
-    Parameters
-    ----------
-    x : any object
-        The object would shared over given communicator.
-    comm : MPI_Comm
-        MPI communicator. Could be a valid communicator or null communicator.
-        The object `x` will be broadcast only if `comm` is not null.
-
-    Returns
-    -------
-    x : any object | None
-        Return the object `x` if `comm` is not MPI.COMM_NULL, or return None if
-        `comm` is MPI.COMM_NULL.
-    """
-    if comm != MPI.COMM_NULL:
-        x = comm.bcast(x)
-    else:
-        x = None
-    return x
+def build_total_moment(s, comm):
+    return comm.reduce(s)
 
 
-def cal_value_on_quadrature_point(A, B, V, index, ctr, opt, comm):
-    w = generate_weights_of_quadrature_points(ctr.df, opt.quadrature, opt.n)[index]
-    z = ctr.func(ctr.domain_length * index / opt.n)
-    dz = ctr.df(ctr.domain_length * index / opt.n)
-    # Since the solution after calling the linear solver, only exist in the
-    # node of rank 0 of communicator. Multiplying the weights to solution
-    # on single node might be a large cost.
-    # To minimize the cost, we multiply the weights to the right-hand side
-    # of equation before calling the solving function
-    return opt.solve(z * B - A, B @ V * (w * z * dz), comm)
-
-
-# TODO: Better rename API name
-def solve_parallel(A, B, V, ctr, opt, comm):
-    rank = comm.Get_rank()
-    index = rank % opt.n
-    sub_comm = comm.Split(index)
-    z = ctr.func(ctr.domain_length * index / opt.n)
-    # Sepatate source matrix V on the communicator which solves
-    # linear equation
-    V = opt.separater(V, sub_comm)
-    # Solve linear equation paralleled
-    # and gather the result to the process of rank = 0
-    #
-    # These matrices A and B could be pre-separated on each node
-    # The statements z * B - A and B @ V would be calculated parallel
-    # TODO: Better separation
-    Y = opt.solve(z * B - A, B @ V, sub_comm)
-    return Y
-
-
-def reduce_integration(A, B, V, ctr, opt, comm):
-    if comm != MPI.COMM_NULL:
-        # Or do the multiplication before solving linear equation
-        # by multiply the invert of w on the left hand side of equation
-        # It could be done paralleled
-        # w = w_i(quadrature, n, index)
-        rank = comm.Get_rank()
-        S = np.hstack(Y * z ** k for z in range(opt.m))
-        S = comm.reduce(S, op=MPI.SUM)
-    else:
-        S = None
-    return S
+def rr_restrict_eig(s, a, b, ctr, cv, comm):
+    p, _, _ = svd_low_rank(s, 3, comm)
+    # Solve the reduced eigenvalue problem with Rayleigh-Ritz Procedure
+    # TODO: implements the shifted version of Rayleigh-Ritz
+    eigval, eigvec = rayleigh_ritz(p, a, b, cv, comm)
+    # Filtering eigen pairs whether which located in the contour
+    eigval, eigvec = inside_filter(eigval, eigvec, ctr)
+    # Calculate relative 2-norm for each eigen pairs, and find the maximum
+    # res = np.amax(eig_residul(A, B, eigval, eigvec))
+    return eigval, eigvec, None

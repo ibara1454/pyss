@@ -24,5 +24,5 @@ def random_source_matrix(rows, cols):
     # TODO: Another way to make the source matrix fixed.
     # Make the source matrix fixed. To make sure unit test
     # returns the same result each times.
-    numpy.random.rand(0)
+    numpy.random.seed(0)
     return numpy.random.rand(rows, cols)

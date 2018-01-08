@@ -32,7 +32,7 @@ class TestPyss(npt.TestCase):
         with ProcessPoolExecutor() as executor:
             ws, vs, res = pyss.standalone.solve(A, B, contour, l, m, n, executor)
         ws = numpy.sort(ws)
-        npt.assert_array_almost_equal(ws, D, decimal=decimal)
+        npt.assert_array_almost_equal(D, ws, decimal=decimal)
 
     @unittest.skipIf('--quick' in sys.argv, 'Large amount computations')
     def test_pyss_size_4800(self):
@@ -42,11 +42,11 @@ class TestPyss(npt.TestCase):
         B = scipy.io.mmread("matrix/mhd4800b.mtx")
         contour = Circle(center=-100, radius=5)
         D = D[contour.is_inside(D)]
-        l, m, n = 20, 5, 12
+        l, m, n = 20, 8, 12
         with ProcessPoolExecutor() as executor:
             ws, vs, res = pyss.standalone.solve(A, B, contour, l, m, n, executor)
         ws = numpy.sort(ws)
-        npt.assert_array_almost_equal(ws, D, decimal=decimal)
+        npt.assert_array_almost_equal(D, ws, decimal=decimal)
 
     @unittest.skipIf('--quick' in sys.argv, 'Large amount computations')
     def test_pyss_size_10429(self):

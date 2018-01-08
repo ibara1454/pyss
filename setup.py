@@ -3,8 +3,6 @@
 
 from setuptools import setup, find_packages
 
-print(find_packages("pyss"))
-
 setup(
     name='pyss',
     version='0.1.0',

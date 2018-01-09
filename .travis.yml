@@ -35,7 +35,7 @@ before_install:
   - if [[ "$MPI" == "openmpi" ]]; then ompi_info;    fi
 
 install:
-  - python -m pip install -q --process-dependency-links .[mpi]
+  - travis_wait 50 python -m pip install -q --process-dependency-links .[mpi]
 
 before_script:
   - if [[ "$MPI" == "mpich" ]]; then P=2; else P=5; fi

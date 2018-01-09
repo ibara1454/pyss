@@ -35,7 +35,7 @@ before_install:
   - if [[ "$MPI" == "openmpi" ]]; then ompi_info;    fi
 
 install:
-  - python$PY -m pip -vvv install --process-dependency-links .[mpi]
+  - python$PY -m pip install --process-dependency-links .[mpi]
 
 before_script:
   - if [[ "$MPI" == "mpich" ]]; then P=2; else P=5; fi
@@ -44,6 +44,6 @@ before_script:
 script:
   - ./conf/environment.sh
   # Test without MPI
-  - python setup.py test -v
+  - python setup.py test
   # Test with MPI
   - mpiexec -n $P python run_mpi_test.py

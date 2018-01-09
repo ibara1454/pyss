@@ -46,6 +46,7 @@ install:
 before_script:
   - if [[ "$MPI" == "mpich" ]]; then P=2; else P=5; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]];  then P=2; fi
+  - ls -al
 
 script:
   - ./conf/environment.sh

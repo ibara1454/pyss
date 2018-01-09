@@ -40,7 +40,7 @@ before_install:
   - if [[ "$MPI" == "openmpi" ]]; then ompi_info;    fi
 
 install:
-  - travis_wait 50 pip install --cache-dir="${HOME/.pip-cache}" .[mpi]
+  - travis_wait 50 pip install -q --process-dependency-links --cache-dir="${HOME/.pip-cache}" .[mpi]
 
 before_script:
   - if [[ "$MPI" == "mpich" ]]; then P=2; else P=5; fi

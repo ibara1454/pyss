@@ -40,7 +40,6 @@ before_install:
   - if [[ "$MPI" == "openmpi" ]]; then ompi_info;    fi
 
 install:
-  - travis_wait 50 pip install -q --cache-dir="${HOME}/.pip-cache" git+https://github.com/scipy/scipy.git
   - travis_wait 50 pip install -q --process-dependency-links --cache-dir="${HOME}/.pip-cache" .[mpi]
 
 before_script:

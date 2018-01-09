@@ -16,11 +16,10 @@ git:
   depth: false
 
 cache:
-  pip: true
+  # pip: true
   apt: true
   directories:
-    - ${HOME}/cache
-    - scipy
+    - ${HOME}/.pip-cache
 
 branches:
   only:
@@ -35,18 +34,18 @@ before_install:
   - python --version
   - python -c "import numpy;print(numpy.__version__)"
   # Build scipy from source
-  - ./conf/git-clone-if-exist.sh https://github.com/scipy/scipy.git ${HOME}/cache/scipy
-  - travis_wait 50 python -m pip install -q --target="." ${HOME}/cache/scipy
+  # - ./conf/git-clone-if-exist.sh https://github.com/scipy/scipy.git ${HOME}/cache/scipy
+  # - travis_wait 50 python -m pip install -q --target="." ${HOME}/cache/scipy
   - if [[ "$MPI" == "mpich"   ]]; then mpichversion; fi
   - if [[ "$MPI" == "openmpi" ]]; then ompi_info;    fi
 
 install:
-  - python -m pip install -q .[mpi]
+  - travis_wait 50 pip install -q --cache-dir="${HOME/.pip-cache}".[mpi]
 
 before_script:
   - if [[ "$MPI" == "mpich" ]]; then P=2; else P=5; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]];  then P=2; fi
-  - ls -al
+  - pip list
 
 script:
   - ./conf/environment.sh

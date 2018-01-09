@@ -4,8 +4,11 @@ python:
   - "3.6"
 
 env:
-  - "MPI=mpich"
-  - "MPI=openmpi"
+  global:
+    - "PYTHONPATH=.cache/lib/python"
+  matrix:
+    # - "MPI=mpich"
+    - "MPI=openmpi"
 
 os: linux
 dist: trusty
@@ -33,8 +36,8 @@ before_install:
   - python --version
   - python -c "import numpy;print(numpy.__version__)"
   # Build scipy from source
-  - git clone https://github.com/scipy/scipy.git .cache/scipy
-  - travis_wait 50 python -m pip install -q .cache/scipy
+  - ./conf/git-clone-if-exist.sh https://github.com/scipy/scipy.git .cache/scipy
+  - travis_wait 50 python -m pip install -q --home=".cache" .cache/scipy
   - if [[ "$MPI" == "mpich"   ]]; then mpichversion; fi
   - if [[ "$MPI" == "openmpi" ]]; then ompi_info;    fi
 

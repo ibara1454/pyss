@@ -51,6 +51,6 @@ before_script:
 script:
   - ./conf/environment.sh
   # Test without MPI
-  - python run_test.py
+  - python setup.py test
   # Test with MPI
   - mpiexec -n $P python run_mpi_test.py

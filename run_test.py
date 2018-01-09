@@ -8,7 +8,7 @@
 from unittest import TestLoader, TextTestRunner
 
 if __name__ == '__main__':
-    path = 'test/standalone'
+    path = 'test'
     loader = TestLoader()
     test = loader.discover(path)
     runner = TextTestRunner(verbosity=2)

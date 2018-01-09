@@ -24,7 +24,7 @@ setup(
     package_dir={'': 'pyss'},
     install_requires=[
         'numpy>=1.10.0,<2',
-        'scipy==1.1.0.dev0+48f197b'
+        'scipy'
     ],
     # need ldlt decomposition, on future release of scipy 1.1
     dependency_links=['https://github.com/scipy/scipy/tarball/master#egg=scipy-1.1.0.dev0+48f197b'],

@@ -3,7 +3,6 @@
 
 import numpy as np
 from functools import partial
-from attrdict import AttrDict
 from pyss.util.generator import (
     generate_points_on_curve, generate_weights_of_quadrature_points
 )
@@ -94,8 +93,6 @@ def pyss_impl_rr(A, B, ctr, l, m, n, source, solver, executor):
         The contour where the eigenvalues we desired located inside.
         `contour` is the instance of pyss.util.contour.Curve, which contains
         the imformation of contour path.
-    opt : attrdict.AttrDict
-        The primary options of Pyss.
     source : function
         The generator of source matrix.
     solver : function
@@ -166,8 +163,6 @@ def moment_builder(A, B, ctr, m, n, solver, executor):
         The contour where the eigenvalues we desired located inside.
         `contour` is the instance of pyss.util.contour.Curve, which contains
         the imformation of contour path.
-    opt : attrdict.AttrDict
-        The primary options of Pyss.
 
     Returns
     -------

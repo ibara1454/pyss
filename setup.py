@@ -3,6 +3,20 @@
 
 from setuptools import setup, find_packages
 
+
+# def load_requires_from_file(filepath):
+#     with open(filepath) as fp:
+#         return [pkg_name.strip() for pkg_name in fp.readlines()]
+
+
+# def load_links_from_file(filepath):
+#     res = []
+#     with open(filepath) as fp:
+#         for pkg_name in fp.readlines():
+#             if pkg_name.startswith("-e"):
+#                 res.append(pkg_name.split(" ")[1])
+#     return res
+
 setup(
     name='pyss',
     version='0.1.0',
@@ -11,8 +25,10 @@ setup(
     install_requires=[
         'numpy>=1.10.0,<2'
     ],
-    # need ldlt decomposition, on future release scipy 1.1
-    dependency_links=['git+ssh://git@github.com/scipy/scipy.git'],
+    # need ldlt decomposition, on future release of scipy 1.1
+    # dependency_links=['https://github.com/scipy/scipy.git#egg=scipy-dev'],
+    # install_requires=load_requires_from_file("requirements.txt"),
+    # dependency_links=load_links_from_file("requirements.txt"),
     extras_require={
         "mpi": ["mpi4py>=2.0.0,<3"]
     },

@@ -15,8 +15,10 @@ git:
   depth: false
 
 cache:
-  - pip
-  - apt
+  pip: true
+  apt: true
+  directories:
+    - .cache
 
 branches:
   only:
@@ -27,15 +29,17 @@ branches:
 before_install:
   - ./conf/install-blas.sh
   - ./conf/install-mpi.sh $MPI
-  - python -m pip install Cython
+  - python -m pip install cython
   - python --version
-  - python -m cython --version
   - python -c "import numpy;print(numpy.__version__)"
+  # Build scipy from source
+  - git clone https://github.com/scipy/scipy.git .cache/scipy
+  - travis_wait 50 python -m pip install -q .cache/scipy
   - if [[ "$MPI" == "mpich"   ]]; then mpichversion; fi
   - if [[ "$MPI" == "openmpi" ]]; then ompi_info;    fi
 
 install:
-  - travis_wait 50 python -m pip install -q --process-dependency-links .[mpi]
+  - python -m pip install -q .[mpi]
 
 before_script:
   - if [[ "$MPI" == "mpich" ]]; then P=2; else P=5; fi

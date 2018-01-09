@@ -28,14 +28,14 @@ before_install:
   - ./conf/install-blas.sh
   - ./conf/install-mpi.sh $MPI
   - python -m pip install Cython
-  - python$PY --version
+  - python --version
   - python -m cython --version
   - python -c "import numpy;print(numpy.__version__)"
   - if [[ "$MPI" == "mpich"   ]]; then mpichversion; fi
   - if [[ "$MPI" == "openmpi" ]]; then ompi_info;    fi
 
 install:
-  - python$PY -m pip install --process-dependency-links .[mpi]
+  - python -m pip install --process-dependency-links .[mpi]
 
 before_script:
   - if [[ "$MPI" == "mpich" ]]; then P=2; else P=5; fi

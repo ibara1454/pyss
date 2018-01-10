@@ -27,7 +27,7 @@ setup(
         'scipy==1.1.0.dev0'
     ],
     # need ldlt decomposition, on future release of scipy 1.1
-    dependency_links=['https://github.com/scipy/scipy.git#egg=scipy-1.1.0.dev0'],
+    dependency_links=['https://github.com/scipy/scipy/tarball/master#egg=scipy-1.1.0.dev0'],
     # dependency_links=['https://github.com/scipy/scipy.git#egg=1.1.0.dev0+b646ff4'],
     # install_requires=load_requires_from_file("requirements.txt"),
     # dependency_links=load_links_from_file("requirements.txt"),

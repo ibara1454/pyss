@@ -1,0 +1,55 @@
+language: python
+python:
+  - "3.5"
+  - "3.6"
+
+env:
+  matrix:
+    # - "MPI=mpich"
+    - "MPI=openmpi"
+
+os: linux
+dist: trusty
+sudo: required
+
+git:
+  depth: false
+
+cache:
+  # pip: true
+  apt: true
+  directories:
+    - ${HOME}/.pip-cache
+
+branches:
+  only:
+    - master
+    - develop
+    - test
+
+before_install:
+  - ./conf/install-blas.sh
+  - ./conf/install-mpi.sh $MPI
+  - python -m pip install cython
+  - python --version
+  - python -c "import numpy;print(numpy.__version__)"
+  # Build scipy from source
+  # - ./conf/git-clone-if-exist.sh https://github.com/scipy/scipy.git ${HOME}/cache/scipy
+  # - travis_wait 50 python -m pip install -q --target="." ${HOME}/cache/scipy
+  - if [[ "$MPI" == "mpich"   ]]; then mpichversion; fi
+  - if [[ "$MPI" == "openmpi" ]]; then ompi_info;    fi
+
+install:
+  - travis_wait 50 pip install -q --process-dependency-links --cache-dir="${HOME}/.pip-cache" .[mpi]
+
+before_script:
+  - if [[ "$MPI" == "mpich" ]]; then P=2; else P=5; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]];  then P=2; fi
+  - pip list
+
+script:
+  - ./conf/environment.sh
+  # Test without MPI
+  - python setup.py test
+  # Test with MPI
+  - mpiexec -n $P python run_mpi_test.py

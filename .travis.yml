@@ -48,3 +48,4 @@ before_script:
   - pip list
 
 script:
+  - python --version

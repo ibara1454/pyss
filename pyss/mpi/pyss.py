@@ -121,9 +121,9 @@ def pyss_impl_rr(l_a, l_b, contour, l, m, n, solver, cv, comm):
     ccomm = comm.Split(row_index)
     rcomm = comm.Split(col_index)
 
-    a = l_a(ccomm)
-    b = l_b(ccomm)
-    v = build_source((A.shape[0], l), ccomm)
+    a, a_size = l_a(ccomm)
+    b, b_size = l_b(ccomm)
+    v = build_source((a_size, l), ccomm)
     # Build the parts of moment on each `ccomm`
     s = build_partial_moment(a, b, v, ctr, col_index, m, solver, cv, ccomm)
     # Build the same moment on each `ccomm` (share data column-wisely)

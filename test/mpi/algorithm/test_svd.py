@@ -15,17 +15,17 @@ decimal_low = 2
 decimal_high = 5
 
 
-def generate_real_common_test_matrix(m, n):
+def generate_real_common_dummy_matrix(m, n):
     return numpy.random.rand(m, n)
 
 
-def generate_complex_common_test_matrix(m, n):
-    return generate_real_common_test_matrix(m, n) + \
-        1j * generate_real_common_test_matrix(m, n)
+def generate_complex_common_dummy_matrix(m, n):
+    return generate_real_common_dummy_matrix(m, n) + \
+        1j * generate_real_common_dummy_matrix(m, n)
 
 
-def generate_complex_hard_test_matrix(m, n):
-    a = generate_complex_common_test_matrix(m, n)
+def generate_complex_hard_dummy_matrix(m, n):
+    a = generate_complex_common_dummy_matrix(m, n)
     s = a.T @ a
     return a @ s
 
@@ -43,7 +43,7 @@ class TestSvd(npt.TestCase):
         ns = [200]
         for (m, n) in itertools.product(ms, ns):
             with self.subTest(m=m, n=n):
-                a = generate_real_common_test_matrix(m, n)
+                a = generate_real_common_dummy_matrix(m, n)
                 U, s, Vh = svd(a, self.comm)
                 S = numpy.diag(s)
                 approx = U @ S @ Vh
@@ -54,7 +54,7 @@ class TestSvd(npt.TestCase):
         ns = [200]
         for (m, n) in itertools.product(ms, ns):
             with self.subTest(m=m, n=n):
-                a = generate_complex_common_test_matrix(m, n)
+                a = generate_complex_common_dummy_matrix(m, n)
                 U, s, Vh = svd(a, self.comm)
                 S = numpy.diag(s)
                 approx = U @ S @ Vh
@@ -65,7 +65,7 @@ class TestSvd(npt.TestCase):
         ns = [200]
         for (m, n) in itertools.product(ms, ns):
             with self.subTest(m=m, n=n):
-                a = generate_complex_hard_test_matrix(m, n)
+                a = generate_complex_hard_dummy_matrix(m, n)
                 U, s, Vh = svd(a, self.comm)
                 S = numpy.diag(s)
                 approx = U @ S @ Vh
